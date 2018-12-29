@@ -65,19 +65,19 @@ d 1.000000
 newmtl wood:0
 Kd 0.7569 0.3137 0.0000 
 illum 0
-d 0.000000
+d 1.000000
 newmtl wood:1
 Kd 0.2235 0.4784 0.0118 
 illum 0
-d 0.000000
+d 1.000000
 newmtl wood:2
 Kd 0.0078 0.2118 0.4980 
 illum 0
-d 0.000000
+d 1.000000
 newmtl wood:3
 Kd 0.5373 0.0196 0.4784 
 illum 0
-d 0.000000
+d 1.000000
 newmtl air:0
 Kd 0.0000 0.0000 0.0000 
 illum 0

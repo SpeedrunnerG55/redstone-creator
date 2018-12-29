@@ -4,8 +4,6 @@
 #include <math.h>
 #include "tables.h"
 
-//global scope! :D
-FILE *fPtr = NULL;
 
 /*
 more of a quality of life
@@ -13,10 +11,48 @@ feature to keep track of
 my selection between functions
 */
 
-void comment(char* message){
-  _Bool commenting = 1;
-  if(commenting)
-  fprintf(fPtr,"// %s\n",message);
+char * script = NULL;
+int scriptLength = 0;
+
+//counters to esimate execution time
+unsigned int waits = 0;
+unsigned int longwaits = 0;
+
+void wait(){
+  waits++;
+}
+
+void printFileBuffer(char * arg){
+  FILE * mPtr = fopen("script.txt","w");
+  fprintf(mPtr,"$${\n");
+
+  fprintf(mPtr,"%s\n",arg);
+  free(arg);
+
+  fprintf(mPtr,"UNSET(@done);\n");
+  fprintf(mPtr,"}$$\n");
+  fclose(mPtr);
+
+  printf("done\n estimated execution time: %i \n",longwaits + waits);
+}
+
+short commandBuffer = 50;
+
+void toScript(char* message){
+  _Bool printing = 0;
+  if(printing){
+    short length = strlen(message);
+    scriptLength += length;
+    script = realloc(script,scriptLength + 1);
+    strncat(script,message,length);
+  }
+}
+
+void comment(char * message){
+  char comment[80] = "// ";
+  strncat(comment,message,80);
+  strncat(comment," \n",80);
+  toScript(comment);
 }
 
 char *blockTable[] ={
@@ -505,36 +541,29 @@ void checkAndExpand(unsigned short distance,char Dir){
   }
 }
 
-//limited to about 10 commands for every 10 seconds it seams...
-short delay = 0;
 
-//counters to esimate execution time
-unsigned int waits = 0;
-unsigned int longwaits = 0;
-
-void wait(){
-  waits++;
-}
 
 void waitUntlDone(){
-  // fprintf(fPtr,"$$<waitTillDone.txt>\n");
-  fprintf(fPtr,"UNSET(@done); ");
-  fprintf(fPtr,"log(waiting for done); ");
-  fprintf(fPtr,"DO; ");
-  fprintf(fPtr,"WAIT(20ms); ");
-  fprintf(fPtr,"UNTIL(@done); ");
-  fprintf(fPtr,"log(Done!); \n");
+  char *command = "UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n";
+  toScript(command);
   longwaits++;
 }
 
 void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specificB, char valueB){
-  fprintf(fPtr,"echo(//replace %s",typeA);
-  if(specificA)
-  fprintf(fPtr,":%i",valueA);
-  fprintf(fPtr," %s",typeB);
-  if(specificB)
-  fprintf(fPtr,":%i",valueB);
-  fprintf(fPtr,");\n");
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//replace %s",typeA);
+  toScript(command);
+  if(specificA){
+    snprintf(command,commandBuffer,":%i",valueA);
+    toScript(command);
+  }
+  snprintf(command,commandBuffer," %s",typeB);
+  toScript(command);
+  if(specificB){
+    snprintf(command,commandBuffer,":%i",valueB);
+    toScript(command);
+  }
+  toScript(");\n");
   waitUntlDone();
 
   //in memory
@@ -563,7 +592,9 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
 //commands i can do
 void setBlock(char* type, unsigned char value, _Bool wait){
   //in game
-  fprintf(fPtr,"echo(//set %s:%i);\n",type,value);
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//set %s:%i);\n",type,value);
+  toScript(command);
   if(wait)
   waitUntlDone();
   //in memory
@@ -583,7 +614,10 @@ void setBlock(char* type, unsigned char value, _Bool wait){
 }
 
 void overlay(char* type, unsigned char value){
-  fprintf(fPtr,"echo(//overlay %s:%i);\n",type,value);
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//overlay %s:%i);\n",type,value);
+  toScript(command);
+
   checkAndExpand(1,'u');
   waitUntlDone();
 
@@ -609,16 +643,6 @@ void overlay(char* type, unsigned char value){
   }
 }
 
-//like im ever going to impliiment these pshhhh, i dont even use them in the script, wayyyy too dangerous
-void copy(){
-  fprintf(fPtr,"echo(//copy);\n");
-  waitUntlDone();
-}
-void paste(){
-  fprintf(fPtr,"echo(//paste);\n");
-  waitUntlDone();
-}
-
 //can be placed anywhere and wil shift the selection
 void selectionShift(char Dir, unsigned short amount){
   //smol switch (relitivlely speaking)
@@ -635,7 +659,9 @@ void selectionShift(char Dir, unsigned short amount){
 
 void shift(unsigned short amount,char Dir){
   if(amount > 0){
-    fprintf(fPtr,"echo(//shift %i %c);\n",amount,Dir);
+    char command[commandBuffer];
+    snprintf(command,commandBuffer,"echo(//shift %i %c);\n",amount,Dir);
+    toScript(command);
     selectionShift(Dir,amount);
     wait();
   }
@@ -692,16 +718,17 @@ void pasteSel(struct block*** arg,short amount, char Dir){
 }
 
 void move(unsigned short amount,_Bool shift, char Dir){
-  fprintf(fPtr,"echo(//move %i %c",amount,Dir);
-
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//move %i %c",amount,Dir);
+  toScript(command);
   //preemtivle test the area im moving into b/c its not in the selection
   checkAndExpand(amount,Dir); //wow that was easy
 
   if (shift){
-    fprintf(fPtr," -s);\n");
+    toScript(" -s);\n");
   }
   else{
-    fprintf(fPtr,");\n");
+    toScript(");\n");
   }
   waitUntlDone();
 
@@ -731,14 +758,19 @@ void move(unsigned short amount,_Bool shift, char Dir){
 void stack(short amount,char Dir, char* options){
   if(amount > 0){
 
+    char command[commandBuffer];
+    snprintf(command,commandBuffer,"echo(//stack %i %c",amount,Dir);
+    toScript(command);
+
     _Bool preserveAir = 0;
 
-    fprintf(fPtr,"echo(//stack %i %c",amount,Dir);
     for(unsigned int i = 0; i < strlen(options); i++){
-      fprintf(fPtr," -%c",options[i]);
+      snprintf(command,commandBuffer," -%c",options[i]);
+      toScript(command);
       preserveAir |= options[i] == 'a';
     }
-    fprintf(fPtr,");\n");
+    toScript(");\n");
+
     waitUntlDone();
 
     //this is going to be a pain..
@@ -809,8 +841,10 @@ void expand(unsigned short amount,char Dir){
     return;
   }
 
-  fprintf(fPtr,"echo(//expand %i %c);\n",amount,Dir);
   wait();
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//expand %i %c);\n",amount,Dir);
+  toScript(command);
 
   //check to allocate memory to expand into
   checkAndExpand(amount,Dir);
@@ -869,8 +903,11 @@ char turnDir(char Dir, char turnDir){
 }
 
 void contract(unsigned short amount,char Dir){
-  fprintf(fPtr,"echo(//contract %i %c);\n",amount,Dir);
   wait();
+
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//contract %i %c);\n",amount,Dir);
+  toScript(command);
 
   //big ol switch mk2
   //no need to check for map expansion lol im contracting
@@ -896,15 +933,15 @@ void setRepeater(char Dir){
     case 'l': offset = 3; break;
   }
   //place block depenting on dirrection and offset on actual Dir
-  fprintf(fPtr,"if(DIRECTION == \"N\"); ");
+  toScript("if(DIRECTION == \"N\"); ");
   setBlock(type,(0+offset)%4,0);
-  fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+  toScript("elseif(DIRECTION == \"E\"); ");
   setBlock(type,(1+offset)%4,0);
-  fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+  toScript("elseif(DIRECTION == \"S\"); ");
   setBlock(type,(2+offset)%4,0);
-  fprintf(fPtr,"elseif(DIRECTION == \"W\"); ");
+  toScript("elseif(DIRECTION == \"W\"); ");
   setBlock(type,(3+offset)%4,0);
-  fprintf(fPtr,"endif;\n");
+  toScript("endif;\n");
   comment("wait at end of if");
   waitUntlDone();
 }
@@ -919,48 +956,48 @@ void setredTorch(char Dir){
     setBlock(type,5,0);
     break;
     case 'r':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,1,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"endif; \n");
+    toScript("endif; \n");
     break;
     case 'l':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,1,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'f':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,1,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'b':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,1,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
   }
   if(Dir != 'u')
@@ -981,48 +1018,48 @@ void setObservor(char Dir){
     setBlock(type,1,0);
     break;
     case 'r':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'l':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'f':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'b':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
   }
   if(Dir != 'u' && Dir != 'd')
@@ -1049,48 +1086,48 @@ void setPiston(char Dir, _Bool sticky){
     setBlock(type,0,0);
     break;
     case 'l':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'r':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'b':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
     case 'f':
-    fprintf(fPtr,"if(DIRECTION == \"W\"); ");
+    toScript("if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"E\"); ");
+    toScript("elseif(DIRECTION == \"E\"); ");
     setBlock(type,5,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"N\"); ");
+    toScript("elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    fprintf(fPtr,"elseif(DIRECTION == \"S\"); ");
+    toScript("elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    fprintf(fPtr,"endif;\n");
+    toScript("endif;\n");
     break;
   }
   if(Dir != 'u' && Dir != 'd')
@@ -1186,7 +1223,10 @@ float getDistance(struct vector arg){
 void line(char* type, unsigned char value){
   comment("line");
 
-  fprintf(fPtr,"echo(//line %s:%i)\n",type,value);
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//line %s:%i)\n",type,value);
+  toScript(command);
+
   waitUntlDone();
 
   struct point a;
@@ -1251,7 +1291,11 @@ void stairs(char* type, unsigned char value, char Dir, char up, char distance){
 //clear selection
 void delete(){
   comment("delete");
-  fprintf(fPtr,"echo(//set 0);");
+
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"echo(//set 0);");
+  toScript(command);
+
   waitUntlDone();
   //get extents
   struct extents selExt = getAllSelExtents();
@@ -1887,9 +1931,6 @@ struct buss buildStables(struct buss roundKey, char Dir,char stSide){
   return ret;
 }
 
-
-
-
 void printBussInfo(struct buss arg,char* state){
   printf("BUSS INFO *********\n");
   printf("Buss  :%12s \n",arg.name);
@@ -2214,7 +2255,7 @@ void buildMaterialLibrary(){
   for(int i = 0; i < 4; i++){
     materialMap[woodID][i].Kd = getKd(woodID,i);
     materialMap[woodID][i].illum = 0;
-    materialMap[woolID][i].d = 1;
+    materialMap[woodID][i].d = 1;
     printMaterial(Mtl,"wood",i,materialMap[woodID][i]);
     free(materialMap[woodID][i].Kd);
   }
@@ -3115,8 +3156,6 @@ int main(){
   map[0] = malloc(mapH * sizeof(struct block*));
   map[0][0] = malloc(mapD * sizeof(struct block));
 
-  fPtr = fopen("script.txt","w");
-  fprintf(fPtr,"$${\n");
 
   struct buss Test = createTestBuss("TEST_1",48,'r','b');
   struct buss* block = allocateBlock();
@@ -3147,15 +3186,12 @@ int main(){
 
   buildMaterialLibrary();
   buildWaveFront();
-
   buildImmages();
+  printFileBuffer(script);
 
-  printf("done\n estimated execution time: %i \n",longwaits + waits);
+
 
   //end portion of main (freeing and closing pointers)
-  fprintf(fPtr,"UNSET(ydone);\n");
-  fprintf(fPtr,"}$$\n");
-  fclose(fPtr);
   freeBlockMap();
 
   return 0;
