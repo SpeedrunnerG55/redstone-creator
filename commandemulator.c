@@ -4,55 +4,65 @@
 #include <math.h>
 #include "tables.h"
 
-
 /*
 more of a quality of life
 feature to keep track of
 my selection between functions
 */
 
-char * script = NULL;
-int scriptLength = 0;
+struct file_buffer{
+  char* name;
+  char** payload;
+  unsigned int length;
+};
 
-//counters to esimate execution time
-unsigned int waits = 0;
-unsigned int longwaits = 0;
+struct file_buffer script_buffer;
 
-void wait(){
-  waits++;
-}
+short commandBuffer = 35;
 
-void printFileBuffer(char * arg){
-  FILE * mPtr = fopen("script.txt","w");
-  fprintf(mPtr,"$${\n");
+void printFileBuffer(struct file_buffer arg, _Bool script){
+  FILE * _Fptr = fopen(arg.name,"w");
+  if(script)
+  fprintf(_Fptr,"$${\n");
 
-  fprintf(mPtr,"%s\n",arg);
-  free(arg);
-
-  fprintf(mPtr,"UNSET(@done);\n");
-  fprintf(mPtr,"}$$\n");
-  fclose(mPtr);
-
-  printf("done\n estimated execution time: %i \n",longwaits + waits);
-}
-
-short commandBuffer = 50;
-
-void toScript(char* message){
-  _Bool printing = 0;
-  if(printing){
-    short length = strlen(message);
-    scriptLength += length;
-    script = realloc(script,scriptLength + 1);
-    strncat(script,message,length);
+  //print the entire file buffer...that was easy
+  if(arg.length > 0){
+    for(unsigned int i = 0; i < arg.length; i++){
+      fprintf(_Fptr,"%s\n",arg.payload[i]);
+    }
   }
+  free(arg.payload);
+
+  if(script){
+    fprintf(_Fptr,"UNSET(@done);\n");
+    fprintf(_Fptr,"}$$\n");
+  }
+  fclose(_Fptr);
+}
+
+struct file_buffer addToBuffer(struct file_buffer buffer, char* arg){
+  unsigned int buffer_len = buffer.length;
+  printf("buff length = %i\n",buffer_len);
+  if(buffer_len == 0){
+    buffer.payload = malloc(sizeof(char*));
+  }
+  else{
+    if(realloc(buffer.payload,(buffer_len + 1) * sizeof(char*)) == 0){
+      printf("realloc fail");
+      return buffer;
+    }
+  }
+  // buffer.payload[buffer_len] = malloc(strlen(arg) + 1);
+  // snprintf(buffer.payload[buffer_len],strlen(arg) + 1,"%s",arg);
+  buffer.length++;
+  return buffer;
 }
 
 void comment(char * message){
-  char comment[80] = "// ";
-  strncat(comment,message,80);
-  strncat(comment," \n",80);
-  toScript(comment);
+  unsigned long comment_len = 5 + strlen(message);
+  char *comment = malloc(comment_len);
+  snprintf(comment,comment_len,"// %s\n",message);
+  script_buffer = addToBuffer(script_buffer,comment);
 }
 
 char *blockTable[] ={
@@ -541,29 +551,35 @@ void checkAndExpand(unsigned short distance,char Dir){
   }
 }
 
-
+//counters to esimate execution time
+unsigned int waits = 0;
+unsigned int longwaits = 0;
 
 void waitUntlDone(){
-  char *command = "UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n";
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,"UNSET(@done); log(waiting for done);");
+  script_buffer = addToBuffer(script_buffer,"DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
   longwaits++;
+}
+
+void wait(){
+  waits++;
 }
 
 void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specificB, char valueB){
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//replace %s",typeA);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
   if(specificA){
-    snprintf(command,commandBuffer,":%i",valueA);
-    toScript(command);
+    snprintf(command,6,":%i",valueA);
+    script_buffer = addToBuffer(script_buffer,command);
   }
-  snprintf(command,commandBuffer," %s",typeB);
-  toScript(command);
+  snprintf(command,15," %s",typeB);
+  script_buffer = addToBuffer(script_buffer,command);
   if(specificB){
-    snprintf(command,commandBuffer,":%i",valueB);
-    toScript(command);
+    snprintf(command,6,":%i",valueB);
+    script_buffer = addToBuffer(script_buffer,command);
   }
-  toScript(");\n");
+  script_buffer = addToBuffer(script_buffer,");\n");
   waitUntlDone();
 
   //in memory
@@ -572,7 +588,6 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
   for(short i = selExt.r; i <= selExt.l; i++){
     for(short j = selExt.d; j <= selExt.u; j++){
       for(short k = selExt.b; k <= selExt.f; k++){
-
         if(blockLookup(typeA) == map[i][j][k].type){
           struct block B;
           B.type = blockLookup(typeB);
@@ -594,7 +609,7 @@ void setBlock(char* type, unsigned char value, _Bool wait){
   //in game
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//set %s:%i);\n",type,value);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
   if(wait)
   waitUntlDone();
   //in memory
@@ -616,7 +631,7 @@ void setBlock(char* type, unsigned char value, _Bool wait){
 void overlay(char* type, unsigned char value){
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//overlay %s:%i);\n",type,value);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
 
   checkAndExpand(1,'u');
   waitUntlDone();
@@ -661,7 +676,7 @@ void shift(unsigned short amount,char Dir){
   if(amount > 0){
     char command[commandBuffer];
     snprintf(command,commandBuffer,"echo(//shift %i %c);\n",amount,Dir);
-    toScript(command);
+    script_buffer = addToBuffer(script_buffer,command);
     selectionShift(Dir,amount);
     wait();
   }
@@ -720,15 +735,15 @@ void pasteSel(struct block*** arg,short amount, char Dir){
 void move(unsigned short amount,_Bool shift, char Dir){
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//move %i %c",amount,Dir);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
   //preemtivle test the area im moving into b/c its not in the selection
   checkAndExpand(amount,Dir); //wow that was easy
 
   if (shift){
-    toScript(" -s);\n");
+    script_buffer = addToBuffer(script_buffer," -s);\n");
   }
   else{
-    toScript(");\n");
+    script_buffer = addToBuffer(script_buffer,");\n");
   }
   waitUntlDone();
 
@@ -760,16 +775,16 @@ void stack(short amount,char Dir, char* options){
 
     char command[commandBuffer];
     snprintf(command,commandBuffer,"echo(//stack %i %c",amount,Dir);
-    toScript(command);
+    script_buffer = addToBuffer(script_buffer,command);
 
     _Bool preserveAir = 0;
 
     for(unsigned int i = 0; i < strlen(options); i++){
-      snprintf(command,commandBuffer," -%c",options[i]);
-      toScript(command);
+      snprintf(command,4," -%c",options[i]);
+      script_buffer = addToBuffer(script_buffer,command);
       preserveAir |= options[i] == 'a';
     }
-    toScript(");\n");
+    script_buffer = addToBuffer(script_buffer,");\n");
 
     waitUntlDone();
 
@@ -844,7 +859,7 @@ void expand(unsigned short amount,char Dir){
   wait();
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//expand %i %c);\n",amount,Dir);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
 
   //check to allocate memory to expand into
   checkAndExpand(amount,Dir);
@@ -907,7 +922,7 @@ void contract(unsigned short amount,char Dir){
 
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//contract %i %c);\n",amount,Dir);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
 
   //big ol switch mk2
   //no need to check for map expansion lol im contracting
@@ -933,15 +948,15 @@ void setRepeater(char Dir){
     case 'l': offset = 3; break;
   }
   //place block depenting on dirrection and offset on actual Dir
-  toScript("if(DIRECTION == \"N\"); ");
+  script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"N\"); ");
   setBlock(type,(0+offset)%4,0);
-  toScript("elseif(DIRECTION == \"E\"); ");
+  script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
   setBlock(type,(1+offset)%4,0);
-  toScript("elseif(DIRECTION == \"S\"); ");
+  script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
   setBlock(type,(2+offset)%4,0);
-  toScript("elseif(DIRECTION == \"W\"); ");
+  script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"W\"); ");
   setBlock(type,(3+offset)%4,0);
-  toScript("endif;\n");
+  script_buffer = addToBuffer(script_buffer,"endif;\n");
   comment("wait at end of if");
   waitUntlDone();
 }
@@ -956,48 +971,48 @@ void setredTorch(char Dir){
     setBlock(type,5,0);
     break;
     case 'r':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,1,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    toScript("endif; \n");
+    script_buffer = addToBuffer(script_buffer,"endif; \n");
     break;
     case 'l':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,1,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'f':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,1,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'b':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,1,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
   }
   if(Dir != 'u')
@@ -1018,48 +1033,48 @@ void setObservor(char Dir){
     setBlock(type,1,0);
     break;
     case 'r':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,5,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'l':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'f':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'b':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
   }
   if(Dir != 'u' && Dir != 'd')
@@ -1086,48 +1101,48 @@ void setPiston(char Dir, _Bool sticky){
     setBlock(type,0,0);
     break;
     case 'l':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,5,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'r':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,4,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'b':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,3,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,2,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
     case 'f':
-    toScript("if(DIRECTION == \"W\"); ");
+    script_buffer = addToBuffer(script_buffer,"if(DIRECTION == \"W\"); ");
     setBlock(type,4,0);
-    toScript("elseif(DIRECTION == \"E\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"E\"); ");
     setBlock(type,5,0);
-    toScript("elseif(DIRECTION == \"N\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"N\"); ");
     setBlock(type,2,0);
-    toScript("elseif(DIRECTION == \"S\"); ");
+    script_buffer = addToBuffer(script_buffer,"elseif(DIRECTION == \"S\"); ");
     setBlock(type,3,0);
-    toScript("endif;\n");
+    script_buffer = addToBuffer(script_buffer,"endif;\n");
     break;
   }
   if(Dir != 'u' && Dir != 'd')
@@ -1225,7 +1240,7 @@ void line(char* type, unsigned char value){
 
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//line %s:%i)\n",type,value);
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,command);
 
   waitUntlDone();
 
@@ -1292,9 +1307,7 @@ void stairs(char* type, unsigned char value, char Dir, char up, char distance){
 void delete(){
   comment("delete");
 
-  char command[commandBuffer];
-  snprintf(command,commandBuffer,"echo(//set 0);");
-  toScript(command);
+  script_buffer = addToBuffer(script_buffer,"echo(//set 0);\n");
 
   waitUntlDone();
   //get extents
@@ -2285,22 +2298,16 @@ struct virtex{
   float y;
 };
 
-void printfaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
-  fprintf(Obj,"f ");
-  for (unsigned char i = 0; i < 4; i++) {
-    fprintf(Obj,"%i ",v_index[i] + vc);
-  }
-  fprintf(Obj,"\n");
+char* getFaceQuad(unsigned char v_index[4], int vc){
+  char *ret = malloc(47);
+  snprintf(ret,47,"f %i %i %i %i\n",v_index[0] + vc,v_index[1] + vc,v_index[2] + vc,v_index[3] + vc);
+  return ret;
 }
 
-void printVirtex(FILE * Obj,struct virtex v){
-  fprintf(Obj,"v");
-  for(int j = 0; j < 3; j++){
-    fprintf(Obj," %f",v.x);
-    fprintf(Obj," %f",v.z);
-    fprintf(Obj," %f",v.y);
-  }
-  fprintf(Obj,"\n");
+char* getVirtex(struct virtex v){
+  char *ret = malloc(20);
+  snprintf(ret,20,"v %.2f %.2f %.2f\n",v.x,v.z,v.y);
+  return ret;
 }
 
 void showReferenceTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool schedualVirtex[8]){
@@ -2388,9 +2395,11 @@ _Bool* getRedStoneShape(short x, short z, short y){
 
 //create .obj file from bock map
 void buildWaveFront(){
-  FILE * Obj = fopen("virtexMap.obj","w");//file pointer
 
-  fprintf(Obj,"mtllib virtexMap.mtl\n");
+  struct file_buffer obj_Buffer;
+  obj_Buffer.name = "virtexMap.obj";
+
+  obj_Buffer = addToBuffer(obj_Buffer,"mtllib virtexMap.mtl\n");
 
   int vc = 0;//virtex count
   for(short x = 0; x < mapW; x++){
@@ -2402,12 +2411,18 @@ void buildWaveFront(){
           char* name = reverseBlockLookup(type);
           unsigned char data = map[x][z][y].value;
 
-          fprintf(Obj,"usemtl %s",name);
+          char msgbuf[20] = "usemtl ";
+          // strncat(msgbuf,name,20);
+          obj_Buffer = addToBuffer(obj_Buffer,msgbuf);
 
-          if(!strncmp(name,"wool",sizeof("wool")) || !strncmp(name,"wood",sizeof("wood")))
-          fprintf(Obj,":%i\n",data);
-          else
-          fprintf(Obj,":0\n");
+          if(!strncmp(name,"wool",sizeof("wool")) || !strncmp(name,"wood",sizeof("wood"))){
+            snprintf(msgbuf,20,":%i\n",data);
+          }
+          else{
+            snprintf(msgbuf,20,":0\n");
+          }
+          obj_Buffer = addToBuffer(obj_Buffer,msgbuf);
+
 
           //demention modifyers
           float U_mod = .5;
@@ -2488,26 +2503,34 @@ void buildWaveFront(){
 
 
           for(int i = 0; i < 8; i++){
-            printVirtex(Obj,v[i]);
+            // obj_Buffer = addToBuffer(obj_Buffer,"beep");
+            // obj_Buffer = addToBuffer(obj_Buffer,getVirtex(v[i]));
             vc++; //current count of all virtexes
           }
-          if(!(type == blockLookup("ice") && (z != 0 && map[x][z - 1][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[0],vc - 8); //bottom
-          if(!(type == blockLookup("ice") && (z != mapH - 1 && map[x][z + 1][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[1],vc - 8); //top
-          if(!(type == blockLookup("ice") && (y != 0 && map[x][z][y - 1].type != 0)))
-          printfaceQuad(Obj,referenceTable[2],vc - 8); //back
-          if(!(type == blockLookup("ice") && (y != mapD - 1 && map[x][z][y + 1].type != 0)))
-          printfaceQuad(Obj,referenceTable[3],vc - 8); //front
-          if(!(type == blockLookup("ice") && (x != 0 && map[x - 1][z][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[4],vc - 8); //left
-          if(!(type == blockLookup("ice") && (x != mapW - 1 && map[x + 1][z][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[5],vc - 8); //right
+
+          _Bool adjacent[6];
+
+          _Bool small = type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch");
+
+          adjacent[0] = z != 0 && map[x][z - 1][y].type != 0;
+          adjacent[1] = z != mapH - 1 && map[x][z + 1][y].type != 0;
+          adjacent[2] = y != 0 && map[x][z][y - 1].type != 0;
+          adjacent[3] = y != mapD - 1 && map[x][z][y + 1].type != 0;
+          adjacent[4]= x != 0 && map[x - 1][z][y].type != 0;
+          adjacent[5] = x != mapW - 1 && map[x + 1][z][y].type != 0;
+
+          //refectored aww yeee :D
+          for( int i = 0; i < 6; i++){
+            if(!((type == blockLookup("ice") && adjacent[i]) || (!small && adjacent[i]))){
+              obj_Buffer = addToBuffer(obj_Buffer,"quad");
+              // obj_Buffer = addToBuffer(obj_Buffer,getFaceQuad(referenceTable[i],vc - 8));
+            }
+          }
         }
       }
     }
   }
-  fclose(Obj); //close file pointer
+  printFileBuffer(obj_Buffer,0);
 }
 
 
@@ -3156,6 +3179,7 @@ int main(){
   map[0] = malloc(mapH * sizeof(struct block*));
   map[0][0] = malloc(mapD * sizeof(struct block));
 
+  script_buffer.name = "script.txt";
 
   struct buss Test = createTestBuss("TEST_1",48,'r','b');
   struct buss* block = allocateBlock();
@@ -3187,9 +3211,9 @@ int main(){
   buildMaterialLibrary();
   buildWaveFront();
   buildImmages();
-  printFileBuffer(script);
+  printFileBuffer(script_buffer,1);
 
-
+  printf("done\n estimated execution time: %i \n",longwaits + waits);
 
   //end portion of main (freeing and closing pointers)
   freeBlockMap();
