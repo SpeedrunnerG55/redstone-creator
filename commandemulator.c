@@ -2285,22 +2285,12 @@ struct virtex{
   float y;
 };
 
-void printfaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
-  fprintf(Obj,"f ");
-  for (unsigned char i = 0; i < 4; i++) {
-    fprintf(Obj,"%i ",v_index[i] + vc);
-  }
-  fprintf(Obj,"\n");
+void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
+  fprintf(Obj,"f %i %i %i %i\n",v_index[0] + vc,v_index[1] + vc,v_index[2] + vc,v_index[3] + vc);
 }
 
 void printVirtex(FILE * Obj,struct virtex v){
-  fprintf(Obj,"v");
-  for(int j = 0; j < 3; j++){
-    fprintf(Obj," %f",v.x);
-    fprintf(Obj," %f",v.z);
-    fprintf(Obj," %f",v.y);
-  }
-  fprintf(Obj,"\n");
+  fprintf(Obj,"v %.1f %.1f %.1f\n",v.x,v.z,v.y);
 }
 
 void showReferenceTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool schedualVirtex[8]){
@@ -2350,9 +2340,12 @@ void reflowTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool s
   showReferenceTable(referenceTable,facePresent,schedualVirtex);
 }
 
+struct redShape{
+  _Bool extend[4];
+  _Bool face[4];
+};
 
-_Bool* getRedStoneShape(short x, short z, short y){
-  _Bool *ret = malloc(4 * sizeof(_Bool));
+struct redShape getRedStoneShape(short x, short z, short y){
 
   char redType = blockLookup("redstone");
 
@@ -2378,12 +2371,25 @@ _Bool* getRedStoneShape(short x, short z, short y){
   _Bool BD = !frstZ && !lastY && map[x][z-1][y+1].type == redType;
   _Bool FD = !frstZ && !frstY && map[x][z-1][y-1].type == redType;
 
-  ret[0] = (L || (!L && LD));
-  ret[1] = (R || (!R && RD));
-  ret[2] = (F || (!F && FD));
-  ret[3] = (B || (!B && BD));
+  struct redShape ret;
+
+  ret.extend[0] = (L || (!L && LD));
+  ret.extend[1] = (R || (!R && RD));
+  ret.extend[2] = (B || (!B && BD));
+  ret.extend[3] = (F || (!F && FD));
+
+  ret.face[0] = !L || (ret.extend[2] || ret.extend[3]);
+  ret.face[1] = !R || (ret.extend[2] || ret.extend[3]);
+  ret.face[2] = !B || (ret.extend[0] || ret.extend[1]);
+  ret.face[3] = !F || (ret.extend[0] || ret.extend[1]);
 
   return ret;
+}
+
+
+_Bool smallBlock(char type){
+  _Bool small = (type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch"));
+  return small;
 }
 
 //create .obj file from bock map
@@ -2418,7 +2424,7 @@ void buildWaveFront(){
           float B_mod = .5;
 
           //a bunch of if then logic to set up possible transforms
-
+          struct redShape redShape = getRedStoneShape(x,z,y);
           if(type == blockLookup("redstone")){
             F_mod = .3;
             L_mod = .3;
@@ -2426,13 +2432,12 @@ void buildWaveFront(){
             R_mod = .3;
 
             U_mod = -.3;
-            _Bool* redShape = getRedStoneShape(x,z,y);
-            if(redShape[0]) L_mod = .5;
-            if(redShape[1]) R_mod = .5;
-            if(redShape[2]) F_mod = .5;
-            if(redShape[3]) B_mod = .5;
 
-            free(redShape);
+            if(redShape.extend[0]) L_mod = .5;
+            if(redShape.extend[1]) R_mod = .5;
+            if(redShape.extend[2]) B_mod = .5;
+            if(redShape.extend[3]) F_mod = .5;
+
           }
 
           else if(type == blockLookup("slab")){
@@ -2478,31 +2483,38 @@ void buildWaveFront(){
           }
 
           unsigned char referenceTable[6][4] = {
-            {1,4,3,2}, //bottom
-            {5,8,7,6}, //top
-            {5,1,2,8}, //back
+            {6,4,1,5}, //left
+            {8,2,3,7}, //right
             {7,3,4,6}, //front
-            {8,2,3,7}, //left
-            {6,4,1,5}, //right
+            {5,1,2,8}, //back
+            {5,8,7,6}, //top
+            {1,4,3,2}, //bottom
+
           };
+
+          char adjacent[6];
+
+          _Bool small = type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch");
+
+          adjacent[0] = (x == mapW - 1? 0 : map[x + 1][z][y].type);
+          adjacent[1] = (x == 0? 0 : map[x - 1][z][y].type);
+          adjacent[2] = (y == mapD - 1? 0 : map[x][z][y + 1].type);
+          adjacent[3] = (y == 0? 0 : map[x][z][y - 1].type);
+          adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
+          adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
 
 
           for(int i = 0; i < 8; i++){
             printVirtex(Obj,v[i]);
             vc++; //current count of all virtexes
           }
-          if(!(type == blockLookup("ice") && (z != 0 && map[x][z - 1][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[0],vc - 8); //bottom
-          if(!(type == blockLookup("ice") && (z != mapH - 1 && map[x][z + 1][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[1],vc - 8); //top
-          if(!(type == blockLookup("ice") && (y != 0 && map[x][z][y - 1].type != 0)))
-          printfaceQuad(Obj,referenceTable[2],vc - 8); //back
-          if(!(type == blockLookup("ice") && (y != mapD - 1 && map[x][z][y + 1].type != 0)))
-          printfaceQuad(Obj,referenceTable[3],vc - 8); //front
-          if(!(type == blockLookup("ice") && (x != 0 && map[x - 1][z][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[4],vc - 8); //left
-          if(!(type == blockLookup("ice") && (x != mapW - 1 && map[x + 1][z][y].type != 0)))
-          printfaceQuad(Obj,referenceTable[5],vc - 8); //right
+
+          //refectored aww yeee :D
+          for( int i = 0; i < 6; i++){
+            if(!((type == blockLookup("ice") && adjacent[i] != 0) || (type == blockLookup("redstone") && i == 5 && !smallBlock(adjacent[5])) || (type == blockLookup("redstone") && (i != 4 && i != 5 && !redShape.face[i])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))))){
+              printFaceQuad(Obj,referenceTable[i],vc - 8);
+            }
+          }
         }
       }
     }
