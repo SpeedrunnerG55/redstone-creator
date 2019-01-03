@@ -165,6 +165,7 @@ unsigned int collerLookup(char type, int value){
 struct block{
   char type;
   unsigned char value;
+  char relDir;
 };
 
 // x z y
@@ -422,6 +423,7 @@ void expandBlockMap(unsigned short change, char Dir){
         for(short k = 0; k < mapD; k++){
           map[i][j][k].type = 0;
           map[i][j][k].value = 0;
+          map[i][j][k].relDir = 0;
         }
       }
     }
@@ -439,6 +441,7 @@ void expandBlockMap(unsigned short change, char Dir){
           for(short k = 0; k < mapD; k++){
             map[i][j][k].type = 0;
             map[i][j][k].value = 0;
+            map[i][j][k].relDir = 0;
           }
         }
       }
@@ -460,6 +463,7 @@ void expandBlockMap(unsigned short change, char Dir){
         for(short k = 0; k < mapD; k++){
           map[i][j][k].type = 0;
           map[i][j][k].value = 0;
+          map[i][j][k].relDir = 0;
         }
       }
       //shift data
@@ -474,6 +478,7 @@ void expandBlockMap(unsigned short change, char Dir){
           for(short k = 0; k < mapD; k++){
             map[i][j][k].type = 0;
             map[i][j][k].value = 0;
+            map[i][j][k].relDir = 0;
           }
         }
       }
@@ -494,6 +499,7 @@ void expandBlockMap(unsigned short change, char Dir){
         for(short k = tempD; k < mapD; k++){
           map[i][j][k].type = 0;
           map[i][j][k].value = 0;
+          map[i][j][k].relDir = 0;
         }
         //shift data
         if(Dir == 'b'){
@@ -501,11 +507,13 @@ void expandBlockMap(unsigned short change, char Dir){
           for(short k = mapD - 1; k >= shiftAmt; k--){
             map[i][j][k].type = map[i][j][k-shiftAmt].type;
             map[i][j][k].value = map[i][j][k-shiftAmt].value;
+            map[i][j][k].relDir = map[i][j][k-shiftAmt].relDir;
           }
           //0 the data unshifted
           for(short k = shiftAmt - 1; k >= 0; k--){
             map[i][j][k].type = 0;
             map[i][j][k].value = 0;
+            map[i][j][k].relDir = 0;
           }
         }
       }
@@ -572,7 +580,6 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
   for(short i = selExt.r; i <= selExt.l; i++){
     for(short j = selExt.d; j <= selExt.u; j++){
       for(short k = selExt.b; k <= selExt.f; k++){
-
         if(blockLookup(typeA) == map[i][j][k].type){
           struct block B;
           B.type = blockLookup(typeB);
@@ -590,7 +597,12 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
 }
 
 //commands i can do
-void setBlock(char* type, unsigned char value, _Bool wait){
+void setBlock(struct block B, _Bool wait){
+
+  //unpack B
+  char* type = reverseBlockLookup(B.type);
+  unsigned char value = B.value;
+
   //in game
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//set %s:%i);\n",type,value);
@@ -603,10 +615,6 @@ void setBlock(char* type, unsigned char value, _Bool wait){
   for(short i = selExt.r; i <= selExt.l; i++){
     for(short j = selExt.d; j <= selExt.u; j++){
       for(short k = selExt.b; k <= selExt.f; k++){
-        struct block B;
-        B.type = blockLookup(type);
-        B.value = value;
-
         map[i][j][k] = B;
       }
     }
@@ -932,15 +940,23 @@ void setRepeater(char Dir){
     case 'b': offset = 2; break;
     case 'l': offset = 3; break;
   }
+
+  char dirSet[4] = {(0+offset)%4,(1+offset)%4,(2+offset)%4,(3+offset)%4};
+
+  //pack B
+  struct block B;
+  B.type = blockLookup(type);
+  B.relDir = Dir;
+
   //place block depenting on dirrection and offset on actual Dir
   toScript("if(DIRECTION == \"N\"); ");
-  setBlock(type,(0+offset)%4,0);
+  B.value = dirSet[0]; setBlock(B,0);
   toScript("elseif(DIRECTION == \"E\"); ");
-  setBlock(type,(1+offset)%4,0);
+  B.value = dirSet[1]; setBlock(B,0);
   toScript("elseif(DIRECTION == \"S\"); ");
-  setBlock(type,(2+offset)%4,0);
+  B.value = dirSet[2]; setBlock(B,0);
   toScript("elseif(DIRECTION == \"W\"); ");
-  setBlock(type,(3+offset)%4,0);
+  B.value = dirSet[3]; setBlock(B,0);
   toScript("endif;\n");
   comment("wait at end of if");
   waitUntlDone();
@@ -950,53 +966,57 @@ void setredTorch(char Dir){
   if(Dir != 'u')
   comment("placing torch based on direction");
   char* type = "redstone_torch";
+
+  //pack B
+  struct block B;
+  B.type = blockLookup(type);
+  B.relDir = Dir;
+
   //even bigger switch
   switch (Dir) {
-    case 'u':
-    setBlock(type,5,0);
-    break;
+    case 'u': B.value = 5,setBlock(B,0); break;
     case 'r':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,1,0);
+    B.value = 1,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("endif; \n");
     break;
     case 'l':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,1,0);
+    B.value = 1,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'f':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,1,0);
+    B.value = 1,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'b':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,1,0);
+    B.value = 1,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("endif;\n");
     break;
   }
@@ -1009,56 +1029,62 @@ void setObservor(char Dir){
   if(Dir != 'u' && Dir != 'd')
   comment("placing observor based on direction");
   char* type = "observor";
+
+  //pack B
+  struct block B;
+  B.type = blockLookup(type);
+  B.relDir = Dir;
+
   //even bigger switch mk 2
   switch (Dir) {
     case 'u':
-    setBlock(type,0,0);
+    B.value = 0,setBlock(B,0);
     break;
     case 'd':
-    setBlock(type,1,0);
+    B.value = 1,setBlock(B,0);
     break;
     case 'r':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'l':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'f':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'b':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("endif;\n");
     break;
   }
@@ -1077,56 +1103,58 @@ void setPiston(char Dir, _Bool sticky){
   type = "sticky_piston";
   else
   type = "piston";
+
+  //pack B
+  struct block B;
+  B.type = blockLookup(type);
+  B.relDir = Dir;
+
   //even bigger switch mk 3
   switch (Dir) {
-    case 'u':
-    setBlock(type,1,0);
-    break;
-    case 'd':
-    setBlock(type,0,0);
-    break;
+    case 'u': B.value = 1,setBlock(B,0); break;
+    case 'd': B.value = 0,setBlock(B,0); break;
     case 'l':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'r':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'b':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("endif;\n");
     break;
     case 'f':
     toScript("if(DIRECTION == \"W\"); ");
-    setBlock(type,4,0);
+    B.value = 4,setBlock(B,0);
     toScript("elseif(DIRECTION == \"E\"); ");
-    setBlock(type,5,0);
+    B.value = 5,setBlock(B,0);
     toScript("elseif(DIRECTION == \"N\"); ");
-    setBlock(type,2,0);
+    B.value = 2,setBlock(B,0);
     toScript("elseif(DIRECTION == \"S\"); ");
-    setBlock(type,3,0);
+    B.value = 3,setBlock(B,0);
     toScript("endif;\n");
     break;
   }
@@ -1135,14 +1163,21 @@ void setPiston(char Dir, _Bool sticky){
   waitUntlDone();
 }
 
-unsigned char wire(short inStrength,unsigned char outToll, char* type, unsigned char value, unsigned short amount, char Dir){
+unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, unsigned short amount, char Dir){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.relDir = '\0';
+
   comment("wire");
   //current position of end of selection
   unsigned short pos = 0;
   //current state of the output strength
   short outStrength = inStrength - amount;
   //support structure for redstone
-  setBlock(type,value,1);
+  setBlock(B,1);
   stack(amount,Dir,"");
   //shift up to do redstone
   shift(1,'u');
@@ -1315,17 +1350,29 @@ void delete(){
 }
 
 void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, unsigned char box){
+
+  //pack B
+  struct block bottom;
+  bottom.type = blockLookup("wood");
+  bottom.value = 2;
+  bottom.relDir = '\0';
+
+  struct block top;
+  top.type = blockLookup("wood");
+  top.value = 3;
+  top.relDir = '\0';
+
   comment("buildDecoderTop");
   unsigned short entries = pow(2,inBits);
   //build top structure
   //single bit
-  setBlock("wood",2,1);
+  setBlock(bottom,1);
   overlay("redstone",0);
   shift(1,Dir);
   shift(1,'u');
   setObservor(Dir);
   shift(1,Dir);
-  setBlock("wood",3,1);
+  setBlock(top,1);
   shift(1,'d');
   setPiston('d',1);
   expand(2,oppDir(Dir));
@@ -1370,6 +1417,13 @@ void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, un
 }
 
 void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSide){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("redstone_block");
+  B.value = 0;
+  B.relDir = '\0';
+
   comment("fillBinPtrn");
   //number of entries
   unsigned short entries = pow(2,inBits);
@@ -1379,7 +1433,7 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
     //create bases
     //bottom side (inverted bits)
     shift(1,'d');
-    setBlock("redstone_block",0,1);
+    setBlock(B,1);
     if(significance[iB] > 1){
       expand(2,Dir);
       stack(significance[iB]-1,Dir,"");
@@ -1388,7 +1442,7 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
     //top side (normal bits)
     shift(1,'u');
     shift(significance[iB] * 3,Dir);
-    setBlock("redstone_block",0,1);
+    setBlock(B,1);
     if(significance[iB] > 1){
       expand(2,oppDir(Dir));
       stack(significance[iB]-1,Dir,"");
@@ -1427,19 +1481,26 @@ void buildDecoder(short inBits,char Dir,char stSide,unsigned char rows,unsigned 
   comment("endbuildDecoder");
 }
 
-void tower(unsigned char amount,char up,char* type, unsigned char value){
+void tower(unsigned char amount,char up, unsigned char value){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.relDir = '\0';
+
   comment("tower");
   amount--;
   if(amount > 0){
     if(up == 'u'){
-      setBlock(type,value,1);
+      setBlock(B,1);
       overlay("redstone",0);
       shift(2,'u');
       setObservor(up);
       if(amount > 1){
         stack(amount - 1,'u',"s");
       }
-      overlay(type,value);
+      overlay("wool",value);
     }
     else{
       setObservor('d');
@@ -1447,7 +1508,7 @@ void tower(unsigned char amount,char up,char* type, unsigned char value){
         stack(amount - 1,'d',"s");
       }
       shift(1,'d');
-      setBlock(type,value,1);
+      setBlock(B,1);
       shift(1,'d');
     }
   }
@@ -1455,12 +1516,19 @@ void tower(unsigned char amount,char up,char* type, unsigned char value){
 }
 
 void flipFlop(char Dir){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("redstone_block");
+  B.value = 0;
+  B.relDir = '\0';
+
   comment("FlipFlop");
   shift(1,'u');
   shift(1,Dir);
   setPiston(Dir,1);
   shift(1,Dir);
-  setBlock("redstone_block",0,1);
+  setBlock(B,1);
   shift(1,Dir);
   shift(1,'d');
   comment("endFlipFlop");
@@ -1483,10 +1551,22 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
 
   unsigned short entries = pow(2,inBits);
 
+  //pack B
+  struct block B1;
+  B1.type = blockLookup("wool");
+  B1.value = 5;
+  B1.relDir = '\0';
+
+  //pack B
+  struct block B2;
+  B2.type = blockLookup("wool");
+  B2.value = 7;
+  B2.relDir = '\0';
+
   //create 1 1x15 wire section
-  setBlock("wool",5,1); //a little touch to make it look a little better
+  setBlock(B1,1); //a little touch to make it look a little better
   shift(1,oppDir(inSide));
-  setBlock("wool",7,1);
+  setBlock(B2,1);
   stack(13,oppDir(inSide),""); //1x15 wire section
   shift(1,inSide);
   shift(1,'u');
@@ -1560,7 +1640,13 @@ void buildandSupport(short inBits, unsigned char outBits, short inSide, char stS
   char num_levels = (outBits / inBits) + 1;
   unsigned short entries = pow(2,inBits);
 
-  setBlock("wool",4,1);
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = 4;
+  B.relDir = '\0';
+
+  setBlock(B,1);
   overlay("redstone",0);
   expand(1,'u'); //include redstone
   expand(2,oppDir(inSide)); //make selection 3 blocks wide
@@ -1627,11 +1713,18 @@ void dataEntry(char* type, unsigned char value, unsigned char entry,char inSide,
 }
 
 void lvlDown(char stSide){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = 4;
+  B.relDir = '\0';
+
   comment("lvlDown");
   shift(1,stSide);
   setredTorch(stSide);
   shift(2,'d');
-  setBlock("wool",4,1);
+  setBlock(B,1);
   overlay("redstone",0);
   shift(1,oppDir(stSide));
   setredTorch(oppDir(stSide));
@@ -1711,8 +1804,14 @@ void buildEncoder(unsigned char rows, unsigned char collumns,unsigned char Table
 void buildSegment(char Dir){
   comment("buildSegment");
 
+  //pack B
+  struct block B;
+  B.type = blockLookup("redstone_lamp");
+  B.value = 0;
+  B.relDir = '\0';
+
   shift(1,Dir);
-  setBlock("redstone_lamp",0,1);
+  setBlock(B,1);
   stack(2,Dir,"");
   shift(1,oppDir(Dir));
   comment("endbuildSegment");
@@ -1721,10 +1820,16 @@ void buildSegment(char Dir){
 void seperateNibble(char* type, unsigned char value, char inSide, char stSide){
   comment("seperateNibble");
 
+  //pack B
+  struct block B;
+  B.type = blockLookup(type);
+  B.value = value;
+  B.relDir = '\0';
+
   shift(6,oppDir(inSide));
   shift(2,'d');
   shift(1,stSide);
-  setBlock(type,value,1);
+  setBlock(B,1);
   expand(1,'u');
   stack(5,'u',"");
   contract(1,'d');
@@ -1742,17 +1847,29 @@ void build7segLights(char* type, unsigned char value, char stSide, char inSide){
   shift(5,oppDir(inSide));
   shift(3,'d');
 
+  //pack ice
+  struct block ice;
+  ice.type = blockLookup("ice");
+  ice.value = value;
+  ice.relDir = '\0';
+
+  //pack case
+  struct block casing;
+  casing.type = blockLookup(type);
+  casing.value = 15;
+  casing.relDir = '\0';
+
   expand(12,'u');
   expand(8,oppDir(stSide));
   expand(1,oppDir(inSide));
-  setBlock(type,15,1);
+  setBlock(casing,1);
   contract(1,oppDir(inSide));
   contract(1,oppDir(stSide));
   contract(1,stSide);
   replace("wool",0,0,type,1,value);
   contract(1,oppDir('u'));
   contract(1,oppDir('d'));
-  setBlock("ice",0,1);
+  setBlock(ice,1);
   shift(1,inSide);
   contract(1,oppDir(stSide));
   contract(5,stSide);
@@ -1781,16 +1898,16 @@ void build7segLights(char* type, unsigned char value, char stSide, char inSide){
 }
 
 void LWire(char Dir, char inSide, _Bool move){
+
   comment("LWire");
-  char* type = "wool";
   unsigned char value = 7;
   if(move){
-    wire(10,4,type,value,2,oppDir(inSide));
+    wire(10,4,value,2,oppDir(inSide));
     shift(1,Dir);
-    wire(10,4,type,value,2,oppDir(inSide));
+    wire(10,4,value,2,oppDir(inSide));
   }
   else{
-    wire(10,4,type,value,4,oppDir(inSide));
+    wire(10,4,value,4,oppDir(inSide));
   }
   shift(4,inSide);
   comment("endLWire");
@@ -1803,7 +1920,7 @@ void stairWire(char Dir, char up, char inSide, _Bool move){
   stairs(type,value,oppDir(inSide),up,2);
   if(move)
   shift(1,Dir);
-  wire(10,4,type,value,2,oppDir(inSide));
+  wire(10,4,value,2,oppDir(inSide));
   shift(4,inSide);
   shift(2,oppDir(up));
   comment("endstairWire");
@@ -2011,13 +2128,13 @@ struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[
     shift(inLength,inSide);
 
     //wire to input
-    inStreangth = wire(inStreangth,4,"wool",dataValueIn,inLength,oppDir(inSide));
+    inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
 
     //where the busses meet
     stairs("redstone_lamp",0,oppDir(forward),'u',2);
 
     //wire to output
-    inStreangth = wire(inStreangth,4,"wool",dataValueOut,outLength - 2,oppDir(forward));
+    inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
 
     //output reached record its strength
     outBuss.strength[i] = inStreangth;
@@ -2049,11 +2166,17 @@ struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[
   return outBuss;
 }
 
-void breakout(char* type, unsigned char dataValue,char outSide){
+void breakout(unsigned char value,char outSide){
   comment("breakout");
 
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.relDir = '\0';
+
   shift(1,outSide);
-  setBlock(type,dataValue,1);
+  setBlock(B,1);
   shift(1,'u');
   setRepeater(outSide);
   shift(5,'d');
@@ -2061,51 +2184,64 @@ void breakout(char* type, unsigned char dataValue,char outSide){
   comment("endbreakout");
 }
 
-void shiftBit(char* type, unsigned char value, char shiftDir, char outSide, unsigned char shift_amt){
+void shiftBit(unsigned char value, char shiftDir, char outSide, unsigned char shift_amt){
   comment("shiftBit");
 
-  setBlock(type,value,1);
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.relDir = '\0';
+
+  setBlock(B,1);
   if(shift_amt == 1){
     shift(1,shiftDir);
     setredTorch(shiftDir);
     shift(1,'u');
-    setBlock(type,value,1);
+    setBlock(B,1);
     shift(1,oppDir(shiftDir));
     setredTorch(oppDir(shiftDir));
     shift(1,'u');
-    setBlock(type,value,1);
+    setBlock(B,1);
   }
   for(unsigned char i = 0; i < 2 * shift_amt; i++){
     if((i !=  (3 * shift_amt) - 1)){
       shift(1,shiftDir);
       setredTorch(shiftDir);
       shift(1,'u');
-      setBlock(type,value,1);
+      setBlock(B,1);
     }
   }
-  breakout(type,value,outSide);
+  breakout(value,outSide);
   comment("endshiftBit");
 }
 
 void cycleBit(char *type, unsigned char value,char shiftDir, char inSide, char outSide, unsigned char shift_amt, unsigned char shiftLength, unsigned char bitIndex){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("redstone_lamp");
+  B.value = 0;
+  B.relDir = '\0';
+
   comment("cycleBit");
-  setBlock("redstone_lamp",0,1);
+  setBlock(B,1);
   shift(1,'d');
   unsigned char strength = 13;
   shift(1,oppDir(inSide));
   stairs(type,value,oppDir(inSide),'u',1);
   strength -= 1;
-  strength = wire(strength,4,type,value,(bitIndex * 2),oppDir(inSide));
+  strength = wire(strength,4,value,(bitIndex * 2),oppDir(inSide));
   stairs(type,value,oppDir(shiftDir),'u',2);
   strength -= 2;
-  strength = wire(strength,2,type,value,(shiftLength * 2) - (3 + (shift_amt * 2) - 1),oppDir(shiftDir));
-  strength = wire(strength,5,type,value,(bitIndex * 2),outSide);
+  strength = wire(strength,2,value,(shiftLength * 2) - (3 + (shift_amt * 2) - 1),oppDir(shiftDir));
+  strength = wire(strength,5,value,(bitIndex * 2),outSide);
   stairs(type,value,inSide,'u',1);
   strength -= 1;
   shift(1,'u');
   shift(1,outSide);
-  setBlock("redstone_lamp",0,1);
-  breakout(type,value,outSide);
+  setBlock(B,1);
+  breakout(value,outSide);
   comment("endcycleBit");
 }
 
@@ -2142,7 +2278,7 @@ struct buss keyShiftSide(struct buss key,_Bool half,unsigned char shiftIndex){
     }
     else{
       short index = i + offset - shift_amt;
-      shiftBit("wool",key.collors[i + offset],Stside,outSide,shift_amt); //shift over by amount
+      shiftBit(key.collors[i + offset],Stside,outSide,shift_amt); //shift over by amount
       shift((shift_amt * 2) + 2, oppDir(Stside));
       if((i >= shiftLength - shift_amt)){ //get the coller from the the temp buss because this is actually a swap
         key.collors[index] = temp.collors[(i + shift_amt) - shiftLength];
@@ -2189,6 +2325,7 @@ struct buss setKeySchedual(){
 
   for(int i = 0; i < 64; i++){
     key.collors[i] = i% 16;
+    key.strength[i] = 10;
   }
 
   struct buss PC1Results = buildPermute("PC1",key,PC1,PC1Length,1,0,PC1outSide,PC1stSide,PC1inSide,1,1);
@@ -2285,13 +2422,7 @@ struct virtex{
   float y;
 };
 
-void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
-  fprintf(Obj,"f %i %i %i %i\n",v_index[0] + vc,v_index[1] + vc,v_index[2] + vc,v_index[3] + vc);
-}
 
-void printVirtex(FILE * Obj,struct virtex v){
-  fprintf(Obj,"v %.1f %.1f %.1f\n",v.x,v.z,v.y);
-}
 
 void showReferenceTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool schedualVirtex[8]){
   printf(" -- Ref Table --\n");
@@ -2392,6 +2523,72 @@ _Bool smallBlock(char type){
   return small;
 }
 
+struct virtexGroup{
+  struct virtex v[8];
+};
+
+struct virtexGroup getVirtexes(short x, short z, short y,float D_mod[6]){
+
+  //virtex map to blace a cuboid
+  _Bool vMap[8][3] = {
+    {1,0,0},
+    {0,0,0},
+    {0,0,1},
+    {1,0,1},
+    {1,1,0},
+    {1,1,1},
+    {0,1,1},
+    {0,1,0},
+  };
+
+  struct virtexGroup ret;
+
+  //apply transform
+  for(int i = 0; i < 8; i++){
+    if(vMap[i][0]) ret.v[i].x = x+D_mod[0];
+    else           ret.v[i].x = x-D_mod[1];
+    if(vMap[i][2]) ret.v[i].y = y+D_mod[2];
+    else           ret.v[i].y = y-D_mod[3];
+    if(vMap[i][1]) ret.v[i].z = z+D_mod[4];
+    else           ret.v[i].z = z-D_mod[5];
+  }
+  return ret;
+}
+
+void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
+  fprintf(Obj,"f %i %i %i %i\n",v_index[0] + vc,v_index[1] + vc,v_index[2] + vc,v_index[3] + vc);
+  // getchar();
+}
+
+void printVirtex(FILE * Obj,struct virtex v){
+  fprintf(Obj,"v %.2f %.2f %.2f\n",v.x,v.z,v.y);
+  // printf("v %.1f %.1f %.1f\n",v.x,v.z,v.y);
+}
+
+void printVoxel(FILE * Obj, struct virtex *v, int vc, char type,char adjacent[6],_Bool small,struct redShape redShape){
+
+  unsigned char referenceTable[6][4] = {
+    {6,4,1,5}, //left
+    {8,2,3,7}, //right
+    {7,3,4,6}, //front
+    {5,1,2,8}, //back
+    {5,8,7,6}, //top
+    {1,4,3,2}, //bottom
+  };
+
+  for(int i = 0; i < 8; i++){
+    // getchar();
+    printVirtex(Obj,v[i]);
+  }
+
+  //refectored aww yeee :D
+  for( int i = 0; i < 6; i++){
+    if(!((type == blockLookup("ice") && adjacent[i] != 0) || (type == blockLookup("redstone") && i == 5 && !smallBlock(adjacent[5])) || (type == blockLookup("redstone") && (i != 4 && i != 5 && !redShape.face[i])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))))){
+      printFaceQuad(Obj,referenceTable[i],vc - 8);
+    }
+  }
+}
+
 //create .obj file from bock map
 void buildWaveFront(){
   FILE * Obj = fopen("virtexMap.obj","w");//file pointer
@@ -2399,6 +2596,7 @@ void buildWaveFront(){
   fprintf(Obj,"mtllib virtexMap.mtl\n");
 
   int vc = 0;//virtex count
+
   for(short x = 0; x < mapW; x++){
     for(short z = 0; z < mapH; z++){
       for(short y = 0; y < mapD; y++){
@@ -2406,91 +2604,8 @@ void buildWaveFront(){
 
           char type = map[x][z][y].type;
           char* name = reverseBlockLookup(type);
+          char Dir = map[x][z][y].relDir;
           unsigned char data = map[x][z][y].value;
-
-          fprintf(Obj,"usemtl %s",name);
-
-          if(!strncmp(name,"wool",sizeof("wool")) || !strncmp(name,"wood",sizeof("wood")))
-          fprintf(Obj,":%i\n",data);
-          else
-          fprintf(Obj,":0\n");
-
-          //demention modifyers
-          float U_mod = .5;
-          float D_mod = .5;
-          float L_mod = .5;
-          float R_mod = .5;
-          float F_mod = .5;
-          float B_mod = .5;
-
-          //a bunch of if then logic to set up possible transforms
-          struct redShape redShape = getRedStoneShape(x,z,y);
-          if(type == blockLookup("redstone")){
-            F_mod = .3;
-            L_mod = .3;
-            B_mod = .3;
-            R_mod = .3;
-
-            U_mod = -.3;
-
-            if(redShape.extend[0]) L_mod = .5;
-            if(redShape.extend[1]) R_mod = .5;
-            if(redShape.extend[2]) B_mod = .5;
-            if(redShape.extend[3]) F_mod = .5;
-
-          }
-
-          else if(type == blockLookup("slab")){
-            D_mod = 0;
-          }
-
-          else if(type == blockLookup("redstone_torch")){
-            U_mod = .2;
-            if(data != 5)//upright torch
-            D_mod = .2;
-            L_mod = .2;
-            R_mod = .2;
-            F_mod = .2;
-            B_mod = .2;
-          }
-
-          else if(type == blockLookup("redstone_repeater")){
-            U_mod = -.1;
-          }
-
-          //virtex map to blace a cuboid
-          _Bool vMap[8][3] = {
-            {1,0,0},
-            {0,0,0},
-            {0,0,1},
-            {1,0,1},
-            {1,1,0},
-            {1,1,1},
-            {0,1,1},
-            {0,1,0},
-          };
-
-          struct virtex v[8];
-
-          //apply transform
-          for(int i = 0; i < 8; i++){
-            if(vMap[i][0]) v[i].x = x+L_mod;
-            else           v[i].x = x-R_mod;
-            if(vMap[i][1]) v[i].z = z+U_mod;
-            else           v[i].z = z-D_mod;
-            if(vMap[i][2]) v[i].y = y+B_mod;
-            else           v[i].y = y-F_mod;
-          }
-
-          unsigned char referenceTable[6][4] = {
-            {6,4,1,5}, //left
-            {8,2,3,7}, //right
-            {7,3,4,6}, //front
-            {5,1,2,8}, //back
-            {5,8,7,6}, //top
-            {1,4,3,2}, //bottom
-
-          };
 
           char adjacent[6];
 
@@ -2503,18 +2618,100 @@ void buildWaveFront(){
           adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
           adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
 
+          fprintf(Obj,"usemtl %s",name);
 
-          for(int i = 0; i < 8; i++){
-            printVirtex(Obj,v[i]);
-            vc++; //current count of all virtexes
+          if(type == blockLookup("wool") || type == blockLookup("wood"))
+          fprintf(Obj,":%i\n",data);
+          else
+          fprintf(Obj,":0\n");
+
+          //demention modifyers
+          float D_mod[6];
+          //L R F B U D
+          for(int i = 0; i < 6; i++){
+            D_mod[i] = .5;
           }
 
-          //refectored aww yeee :D
-          for( int i = 0; i < 6; i++){
-            if(!((type == blockLookup("ice") && adjacent[i] != 0) || (type == blockLookup("redstone") && i == 5 && !smallBlock(adjacent[5])) || (type == blockLookup("redstone") && (i != 4 && i != 5 && !redShape.face[i])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))))){
-              printFaceQuad(Obj,referenceTable[i],vc - 8);
+          //a bunch of if then logic to set up possible transforms
+          struct redShape redShape;
+          if(type == blockLookup("redstone")){
+
+            redShape = getRedStoneShape(x,z,y);
+
+            D_mod[4] = -.3;
+            for(int i = 0; i < 6; i++){
+              if(i != 4 && i != 5)
+              D_mod[i] = .3;
             }
+
+            if(redShape.extend[0]) D_mod[0] = .5;
+            if(redShape.extend[1]) D_mod[1] = .5;
+            if(redShape.extend[2]) D_mod[2] = .5;
+            if(redShape.extend[3]) D_mod[3] = .5;
+
+            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
           }
+
+          else if(type == blockLookup("slab")){
+            D_mod[5] = 0; //how far up from
+
+            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+          }
+
+          else if(type == blockLookup("redstone_torch")){
+            for(int i = 0; i < 6; i++){
+              D_mod[i] = .15;
+            }
+            switch (Dir) {
+              case 'r': D_mod[0] = .5; break;
+              case 'l': D_mod[1] = .5; break;
+              case 'b': D_mod[2] = .5; break;
+              case 'f': D_mod[3] = .5; break;
+              case 'u': D_mod[4] = .5; break;
+            }
+
+            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+
+            for(int i = 0; i < 6; i++){
+              D_mod[i] = .2;
+            }
+
+            switch (Dir) {
+              case 'r': D_mod[1] = .3; D_mod[0] = .1; break;
+              case 'l': D_mod[0] = .3; D_mod[1] = .1; break;
+              case 'b': D_mod[3] = .3; D_mod[2] = .1; break;
+              case 'f': D_mod[2] = .3; D_mod[3] = .1; break;
+              case 'u': D_mod[5] = .3; D_mod[4] = .1; break;
+            }
+
+            fprintf(Obj,"usemtl redstone_block:0\n");
+
+            v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+
+          }
+
+          else if(type == blockLookup("redstone_repeater")){
+            D_mod[4] = -.1;
+
+            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+          }
+
+          else{
+            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vc += 8; //current count of all virtexes
+            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+          }
+
         }
       }
     }
@@ -2528,7 +2725,7 @@ struct buss bussStraight(struct buss arg, short distance){
   unsigned char width = arg.width;
   char bussDir = arg.loc.direction;
   for(unsigned char i = 0; i < width; i++){
-    arg.strength[i] = wire(arg.strength[i],5,"wool",arg.collors[i],distance,bussDir);
+    arg.strength[i] = wire(arg.strength[i],5,arg.collors[i],distance,bussDir);
     if(i != width - 1){
       shift(2,oppDir(arg.loc.stSide));
       shift(distance,oppDir(bussDir));
@@ -2539,9 +2736,16 @@ struct buss bussStraight(struct buss arg, short distance){
   return arg;
 }
 
-void tower2(char* type, unsigned char value,unsigned char levels){
+void tower2(unsigned char value,unsigned char levels){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.relDir = '\0';
+
   comment("tower2");
-  setBlock(type,value,1);
+  setBlock(B,1);
   shift(1,'u');
   setredTorch('u');
   expand(1,'d');
@@ -2554,7 +2758,6 @@ void tower2(char* type, unsigned char value,unsigned char levels){
 struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool flip){
   comment("bussUp");
 
-
   if(flip){
     arg.loc.direction = oppDir(arg.loc.direction);
   }
@@ -2564,9 +2767,16 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
 
   unsigned char width = arg.width;
   for(unsigned char i = 0; i < width; i++){
+
+    //pack B
+    struct block B;
+    B.type = blockLookup("wool");
+    B.value = arg.collors[i+1];
+    B.relDir = '\0';
+
     if(type){
       if(i == 0){
-        tower(distance,up,"wool",arg.collors[i]);
+        tower(distance,up,arg.collors[0]);
 
         flipFlop(Dir);
 
@@ -2594,7 +2804,7 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
       }
       if(i != width - 1){
         shift(2,oppDir(arg.loc.stSide));
-        setBlock("wool",arg.collors[i+1],1);
+        setBlock(B,1);
       }
       else{
         shift(1,'d');
@@ -2603,7 +2813,7 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
       arg.strength[i] = 14;
     }
     else{
-      tower2("wool",arg.collors[i],distance / 2);
+      tower2(arg.collors[i],distance / 2);
       if(i != width - 1){
         shift(distance,oppDir(up));
         shift(2,oppDir(arg.loc.stSide));
@@ -2664,25 +2874,33 @@ void freeBlockMap(){
 
 void bitXOR1(char Dir){
 
-  char* type = "wool";
 
-  unsigned char valueA = 5;
-  unsigned char valueB = 4;
+  //pack B1
+  struct block B1;
+  B1.type = blockLookup("wool");
+  B1.value = 5;
+  B1.relDir = '\0';
+
+  //pack B2
+  struct block B2;
+  B2.type = blockLookup("wool");
+  B2.value = 4;
+  B2.relDir = '\0';
 
   comment("bitXOR1");
-  setBlock(type,valueA,1);
+  setBlock(B1,1);
   shift(1,'u');
   setRepeater(Dir);
   shift(2,'d');
   shift(1,Dir);
-  setBlock(type,valueB,1);
+  setBlock(B2,1);
   overlay("redstone",0);
   shift(2,'u');
-  setBlock(type,valueA,1);
+  setBlock(B1,1);
   overlay("redstone",0);
   shift(1,Dir);
   shift(1,'u');
-  setBlock(type,valueA,1);
+  setBlock(B1,1);
   shift(1,Dir);
   setredTorch(Dir);
   expand(1,oppDir(Dir));
@@ -2693,29 +2911,36 @@ void bitXOR1(char Dir){
   shift(1,'u');
   setredTorch('u');
   shift(3,'d');
-  wire(14,1,type,valueB,1,Dir);
+  wire(14,1,4,1,Dir);
   shift(1,Dir);
   shift(1,'u');
-  setBlock(type,valueB,1);
+  setBlock(B2,1);
   shift(1,'u');
   setredTorch('u');
   shift(1,'u');
-  setBlock("wool",5,1);
+  setBlock(B1,1);
   overlay("redstone",0);
   comment("endbitXOR1");
 }
 
 void bitXOR2(char Dir){
 
-  char* type = "wool";
+  //pack B1
+  struct block B1;
+  B1.type = blockLookup("wool");
+  B1.value = 5;
+  B1.relDir = '\0';
 
-  unsigned char valueA = 5;
-  unsigned char valueB = 4;
+  //pack B2
+  struct block B2;
+  B2.type = blockLookup("wool");
+  B2.value = 4;
+  B2.relDir = '\0';
 
   comment("bitXOR2");
   shift(1,Dir);
   shift(1,'u');
-  setBlock(type,valueB,1);
+  setBlock(B2,1);
   expand(1,'u');
   stack(1,'u',"");
   shift(1,'u');
@@ -2723,7 +2948,7 @@ void bitXOR2(char Dir){
   shift(1,'d');
   shift(1,Dir);
   contract(1,'u');
-  setBlock(type,valueA,1);
+  setBlock(B1,1);
   expand(1,'d');
   stack(1,'u',"");
   expand(1,oppDir(Dir));
@@ -2846,9 +3071,9 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
   for(int i = 0; i < width; i++){
     if(flip){
       if(arg.loc.stSide == newDir){
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],((width - 1) - i) * 2,oldDir);
-        tower(depth,'d',"wool",arg.collors[i]);
-        arg.strength[i] = wire(16,1,"wool",arg.collors[i],i * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,oldDir);
+        tower(depth,'d',arg.collors[i]);
+        arg.strength[i] = wire(16,1,arg.collors[i],i * 2,newDir);
         if(i != width -1){
           shift(((width - 1) - i) * 2,oppDir(oldDir));
           shift(i * 2,oppDir(newDir));
@@ -2857,9 +3082,9 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],i * 2,oldDir);
-        tower(depth,'d',"wool",arg.collors[i]);
-        arg.strength[i] = wire(16,1,"wool",arg.collors[i],((width - 1) - i) * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,oldDir);
+        tower(depth,'d',arg.collors[i]);
+        arg.strength[i] = wire(16,1,arg.collors[i],((width - 1) - i) * 2,newDir);
         if(i != width -1){
           shift(i * 2,oppDir(oldDir));
           shift(((width - 1) - i) * 2,oppDir(newDir));
@@ -2870,8 +3095,8 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
     }
     else{
       if(arg.loc.stSide == newDir){
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],i * 2,oldDir);
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],i * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,oldDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,newDir);
         if(i != width -1){
           shift(i * 2,oppDir(oldDir));
           shift(i * 2,oppDir(newDir));
@@ -2879,8 +3104,8 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],((width - 1) - i) * 2,oldDir);
-        arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],((width - 1) - i) * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,oldDir);
+        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,newDir);
         if(i != width -1){
           shift(((width - 1) - i) * 2,oppDir(oldDir));
           shift(((width - 1) - i) * 2,oppDir(newDir));
@@ -3037,6 +3262,13 @@ struct buss* buildRound(struct buss roundKey, struct buss* block){
 }
 
 struct buss* bussTap(struct buss arg,char direction){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("redstone_lamp");
+  B.value = 0;
+  B.relDir = '\0';
+
   comment("bussTap");
 
   char oldDir = arg.loc.direction;
@@ -3064,19 +3296,19 @@ struct buss* bussTap(struct buss arg,char direction){
     short shortDist = i * 2;
 
     if(arg.loc.stSide == newDir){
-      arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],longDist,oldDir);
+      arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],longDist,oldDir);
       shift(1,'u');
       setRepeater(oldDir);
       shift(1,oldDir);
-      setBlock("redstone_lamp",0,1);
+      setBlock(B,1);
       shift(1,'d');
       shift(1,oldDir);
-      ret[0].strength[i] = wire(15,1,"wool",arg.collors[i],shortDist,oldDir);
+      ret[0].strength[i] = wire(15,1,arg.collors[i],shortDist,oldDir);
       shift(shortDist + 1,oppDir(oldDir));
       shift(1,'d');
-      ret[1].strength[i] = wire(15,1,"wool",arg.collors[i],0,newDir);
+      ret[1].strength[i] = wire(15,1,arg.collors[i],0,newDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(ret[1].strength[i],1,"wool",arg.collors[i],shortDist + 1,newDir);
+      ret[1].strength[i] = wire(ret[1].strength[i],1,arg.collors[i],shortDist + 1,newDir);
       shift(2,'u');
       if(i != width - 1){
         shift(longDist + 1,oppDir(oldDir));
@@ -3088,19 +3320,19 @@ struct buss* bussTap(struct buss arg,char direction){
       }
     }
     else{
-      arg.strength[i] = wire(arg.strength[i],1,"wool",arg.collors[i],shortDist,oldDir);
+      arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],shortDist,oldDir);
       shift(1,'u');
       setRepeater(oldDir);
       shift(1,oldDir);
-      setBlock("redstone_lamp",0,1);
+      setBlock(B,1);
       shift(1,'d');
       shift(1,oldDir);
-      ret[0].strength[i] = wire(15,1,"wool",arg.collors[i],longDist,oldDir);
+      ret[0].strength[i] = wire(15,1,arg.collors[i],longDist,oldDir);
       shift(longDist + 1,oppDir(oldDir));
       shift(1,'d');
-      ret[1].strength[i] = wire(15,1,"wool",arg.collors[i],0,newDir);
+      ret[1].strength[i] = wire(15,1,arg.collors[i],0,newDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(ret[1].strength[i],1,"wool",arg.collors[i],longDist + 1,newDir);
+      ret[1].strength[i] = wire(ret[1].strength[i],1,arg.collors[i],longDist + 1,newDir);
       shift(2,'u');
       if(i != width - 1){
         shift(shortDist + 1,oppDir(oldDir));
