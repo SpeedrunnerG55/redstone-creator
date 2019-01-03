@@ -2472,8 +2472,7 @@ void reflowTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool s
 }
 
 struct redShape{
-  _Bool extend[4];
-  _Bool face[4];
+  _Bool extend[8];
 };
 
 struct redShape getRedStoneShape(short x, short z, short y){
@@ -2492,10 +2491,10 @@ struct redShape getRedStoneShape(short x, short z, short y){
   _Bool B = !lastY && map[x][z][y+1].type != 0;
   _Bool F = !frstY && map[x][z][y-1].type != 0;
 
-  // _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == redType;
-  // _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == redType;
-  // _Bool BU = !lastZ && !lastY && map[x][z+1][y+1].type == redType;
-  // _Bool FU = !lastZ && !frstY && map[x][z+1][y-1].type == redType;
+  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == redType;
+  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == redType;
+  _Bool BU = !lastZ && !lastY && map[x][z+1][y+1].type == redType;
+  _Bool FU = !lastZ && !frstY && map[x][z+1][y-1].type == redType;
 
   _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == redType;
   _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == redType;
@@ -2509,49 +2508,146 @@ struct redShape getRedStoneShape(short x, short z, short y){
   ret.extend[2] = (B || (!B && BD));
   ret.extend[3] = (F || (!F && FD));
 
-  ret.face[0] = !L || (ret.extend[2] || ret.extend[3]);
-  ret.face[1] = !R || (ret.extend[2] || ret.extend[3]);
-  ret.face[2] = !B || (ret.extend[0] || ret.extend[1]);
-  ret.face[3] = !F || (ret.extend[0] || ret.extend[1]);
+  ret.extend[4] = LU;
+  ret.extend[5] = RU;
+  ret.extend[6] = BU;
+  ret.extend[7] = FU;
 
   return ret;
 }
 
 
 _Bool smallBlock(char type){
-  _Bool small = (type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch"));
+  _Bool small = (type == 0 || type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch"));
   return small;
 }
 
-struct virtexGroup{
-  struct virtex v[8];
+struct voxel{
+  //demention modifyers
+  //L R F B U D
+  _Bool exist;
+  float D_mod[6];
+  _Bool faces[6];
 };
 
-struct virtexGroup getVirtexes(short x, short z, short y,float D_mod[6]){
 
-  //virtex map to blace a cuboid
-  _Bool vMap[8][3] = {
-    {1,0,0},
-    {0,0,0},
-    {0,0,1},
-    {1,0,1},
-    {1,1,0},
-    {1,1,1},
-    {0,1,1},
-    {0,1,0},
-  };
 
-  struct virtexGroup ret;
+struct voxel* getVoxels(char type, char Dir, char adjacent[6], short x, short z, short y){
 
-  //apply transform
-  for(int i = 0; i < 8; i++){
-    if(vMap[i][0]) ret.v[i].x = x+D_mod[0];
-    else           ret.v[i].x = x-D_mod[1];
-    if(vMap[i][2]) ret.v[i].y = y+D_mod[2];
-    else           ret.v[i].y = y-D_mod[3];
-    if(vMap[i][1]) ret.v[i].z = z+D_mod[4];
-    else           ret.v[i].z = z-D_mod[5];
+  struct voxel* ret = malloc(sizeof(struct voxel));
+
+  _Bool small = smallBlock(type);
+
+  for(int i = 0; i < 6; i++){
+    ret[0].D_mod[i] = .5;
   }
+
+  //a bunch of if then logic to set up possible transforms
+  if(type == blockLookup("redstone")){
+
+    float height = 0.2;
+    float depth = .3;
+    float negHeight = -(.5 - height);
+
+    ret = realloc(ret,5 * sizeof(struct voxel));
+    struct redShape redShape;
+    redShape = getRedStoneShape(x,z,y);
+    ret[0].D_mod[4] = negHeight;
+    ret[0].exist = 1;
+    for(int i = 0; i < 6; i++){
+      ret[0].faces[5] = smallBlock(adjacent[5]);
+      ret[0].faces[4] = 1;
+      if(i != 5 && i != 4 && !redShape.extend[i]){
+        ret[0].faces[i] = 1;
+      }
+      if(i != 5 && i != 4){
+        ret[0].D_mod[i] = depth;
+      }
+    }
+
+    for(int i = 1; i < 5; i++){
+      ret[i].exist = redShape.extend[i - 1];
+      if(ret[i].exist){
+        ret[i].faces[5] = smallBlock(adjacent[5]);
+        ret[i].faces[4] = 1;
+        ret[i].D_mod[5] = .5;
+        for(int j = 0; j < 4; j++){
+          ret[i].faces[j] = 1;
+          ret[i].D_mod[j] = depth;
+        }
+
+        if(redShape.extend[i + 3]){
+          ret[i].D_mod[4] = .5 + height;
+          ret[i].faces[i - 1] = 0;
+        }
+        else{
+          ret[i].D_mod[4] = negHeight;
+          ret[i].faces[i - 1] = 0;
+        }
+
+        ret[i].D_mod[i-1] = .5;
+
+        switch(i - 1){
+          case 0: ret[i].D_mod[1] = negHeight; ret[i].faces[1] = redShape.extend[i + 3]; break;
+          case 1: ret[i].D_mod[0] = negHeight; ret[i].faces[0] = redShape.extend[i + 3]; break;
+          case 2: ret[i].D_mod[3] = negHeight; ret[i].faces[3] = redShape.extend[i + 3]; break;
+          case 3: ret[i].D_mod[2] = negHeight; ret[i].faces[2] = redShape.extend[i + 3]; break;
+        }
+      }
+    }
+  }
+
+  else if(type == blockLookup("slab")){
+    ret[0].D_mod[5] = 0; //how far up from
+  }
+
+  else if(type == blockLookup("redstone_torch")){
+    ret = realloc(ret,2 * sizeof(struct voxel));
+    for(int i = 0; i < 6; i++){
+      ret[0].D_mod[i] = .15;
+      ret[0].faces[i] = 1;
+      ret[1].faces[i] = 1;
+    }
+    switch (Dir) {
+      case 'l': ret[0].D_mod[1] = .5; ret[0].faces[1] = 0; ret[0].faces[0] = 0; break;
+      case 'r': ret[0].D_mod[0] = .5; ret[0].faces[0] = 0; ret[0].faces[1] = 0; break;
+      case 'f': ret[0].D_mod[3] = .5; ret[0].faces[3] = 0; ret[0].faces[2] = 0; break;
+      case 'b': ret[0].D_mod[2] = .5; ret[0].faces[2] = 0; ret[0].faces[3] = 0; break;
+      case 'u': ret[0].D_mod[4] = .5; ret[0].faces[5] = 0; ret[0].faces[4] = 0; break;
+    }
+
+    for(int i = 0; i < 6; i++){
+      ret[1].D_mod[i] = .2;
+    }
+
+    switch (Dir) {
+      case 'l': ret[1].D_mod[0] = .3; ret[1].D_mod[1] = .1; break;
+      case 'r': ret[1].D_mod[1] = .3; ret[1].D_mod[0] = .1; break;
+      case 'b': ret[1].D_mod[3] = .3; ret[1].D_mod[2] = .1; break;
+      case 'f': ret[1].D_mod[2] = .3; ret[1].D_mod[3] = .1; break;
+      case 'u': ret[1].D_mod[5] = .3; ret[1].D_mod[4] = .1; break;
+    }
+  }
+
+  else if(type == blockLookup("redstone_repeater")){
+    ret[0].D_mod[4] = -.1;
+    for(int i = 0; i < 6; i++){
+      ret[0].faces[i] = !(i == 5 && smallBlock(adjacent[5]));
+    }
+  }
+
+  else if(type == blockLookup("ice")){
+    for(int i = 0; i < 6; i++){
+      ret[0].faces[i] = adjacent[i] == 0;
+    }
+  }
+  else{
+    for(int i = 0; i < 6; i++){
+      ret[0].faces[i] = !((i == 5 && !smallBlock(adjacent[5])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))));
+      ret[0].D_mod[i] = .5;
+    }
+  }
+
   return ret;
 }
 
@@ -2565,7 +2661,31 @@ void printVirtex(FILE * Obj,struct virtex v){
   // printf("v %.1f %.1f %.1f\n",v.x,v.z,v.y);
 }
 
-void printVoxel(FILE * Obj, struct virtex *v, int vc, char type,char adjacent[6],_Bool small,struct redShape redShape){
+void printVoxel(FILE * Obj, struct voxel vox, int vc, short x, short z, short y){
+
+  //virtex map to blace a cuboid
+  _Bool vMap[8][3] = {
+    {1,0,0},
+    {0,0,0},
+    {0,0,1},
+    {1,0,1},
+    {1,1,0},
+    {1,1,1},
+    {0,1,1},
+    {0,1,0},
+  };
+
+  struct virtex v[8];
+
+  //apply transform
+  for(int i = 0; i < 8; i++){
+    if(vMap[i][0]) v[i].x = x + vox.D_mod[0];
+    else           v[i].x = x - vox.D_mod[1];
+    if(vMap[i][2]) v[i].y = y + vox.D_mod[2];
+    else           v[i].y = y - vox.D_mod[3];
+    if(vMap[i][1]) v[i].z = z + vox.D_mod[4];
+    else           v[i].z = z - vox.D_mod[5];
+  }
 
   unsigned char referenceTable[6][4] = {
     {6,4,1,5}, //left
@@ -2583,7 +2703,7 @@ void printVoxel(FILE * Obj, struct virtex *v, int vc, char type,char adjacent[6]
 
   //refectored aww yeee :D
   for( int i = 0; i < 6; i++){
-    if(!((type == blockLookup("ice") && adjacent[i] != 0) || (type == blockLookup("redstone") && i == 5 && !smallBlock(adjacent[5])) || (type == blockLookup("redstone") && (i != 4 && i != 5 && !redShape.face[i])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))))){
+    if(vox.faces[i]){
       printFaceQuad(Obj,referenceTable[i],vc - 8);
     }
   }
@@ -2609,8 +2729,6 @@ void buildWaveFront(){
 
           char adjacent[6];
 
-          _Bool small = type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch");
-
           adjacent[0] = (x == mapW - 1? 0 : map[x + 1][z][y].type);
           adjacent[1] = (x == 0? 0 : map[x - 1][z][y].type);
           adjacent[2] = (y == mapD - 1? 0 : map[x][z][y + 1].type);
@@ -2618,100 +2736,40 @@ void buildWaveFront(){
           adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
           adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
 
+          struct voxel* vox;
+
           fprintf(Obj,"usemtl %s",name);
 
-          if(type == blockLookup("wool") || type == blockLookup("wood"))
-          fprintf(Obj,":%i\n",data);
-          else
-          fprintf(Obj,":0\n");
+          if(type == blockLookup("wool") || type == blockLookup("wood")) fprintf(Obj,":%i\n",data);
+          else fprintf(Obj,":0\n");
 
-          //demention modifyers
-          float D_mod[6];
-          //L R F B U D
-          for(int i = 0; i < 6; i++){
-            D_mod[i] = .5;
-          }
-
-          //a bunch of if then logic to set up possible transforms
-          struct redShape redShape;
           if(type == blockLookup("redstone")){
-
-            redShape = getRedStoneShape(x,z,y);
-
-            D_mod[4] = -.3;
-            for(int i = 0; i < 6; i++){
-              if(i != 4 && i != 5)
-              D_mod[i] = .3;
+            vox = getVoxels(type,Dir,adjacent,x,z,y);
+            for(int i = 0; i < 5; i++){
+              if(vox[i].exist){
+                vc += 8; //current count of all virtexes
+                printVoxel(Obj,vox[i],vc,x,z,y);
+              }
             }
-
-            if(redShape.extend[0]) D_mod[0] = .5;
-            if(redShape.extend[1]) D_mod[1] = .5;
-            if(redShape.extend[2]) D_mod[2] = .5;
-            if(redShape.extend[3]) D_mod[3] = .5;
-
-            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
-          }
-
-          else if(type == blockLookup("slab")){
-            D_mod[5] = 0; //how far up from
-
-            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
           }
 
           else if(type == blockLookup("redstone_torch")){
-            for(int i = 0; i < 6; i++){
-              D_mod[i] = .15;
-            }
-            switch (Dir) {
-              case 'r': D_mod[0] = .5; break;
-              case 'l': D_mod[1] = .5; break;
-              case 'b': D_mod[2] = .5; break;
-              case 'f': D_mod[3] = .5; break;
-              case 'u': D_mod[4] = .5; break;
-            }
+            vox = getVoxels(type,Dir,adjacent,x,z,y);
 
-            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
             vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
-
-            for(int i = 0; i < 6; i++){
-              D_mod[i] = .2;
-            }
-
-            switch (Dir) {
-              case 'r': D_mod[1] = .3; D_mod[0] = .1; break;
-              case 'l': D_mod[0] = .3; D_mod[1] = .1; break;
-              case 'b': D_mod[3] = .3; D_mod[2] = .1; break;
-              case 'f': D_mod[2] = .3; D_mod[3] = .1; break;
-              case 'u': D_mod[5] = .3; D_mod[4] = .1; break;
-            }
+            printVoxel(Obj,vox[0],vc,x,z,y);
 
             fprintf(Obj,"usemtl redstone_block:0\n");
-
-            v = getVirtexes(x,z,y,D_mod);
             vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
-
-          }
-
-          else if(type == blockLookup("redstone_repeater")){
-            D_mod[4] = -.1;
-
-            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+            printVoxel(Obj,vox[1],vc,x,z,y);
           }
 
           else{
-            struct virtexGroup v = getVirtexes(x,z,y,D_mod);
+            vox = getVoxels(type,Dir,adjacent,x,z,y);
             vc += 8; //current count of all virtexes
-            printVoxel(Obj,v.v,vc,type,adjacent,small,redShape);
+            printVoxel(Obj,vox[0],vc,x,z,y);
           }
-
+          free(vox);
         }
       }
     }
