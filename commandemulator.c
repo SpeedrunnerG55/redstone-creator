@@ -65,6 +65,7 @@ char *blockTable[] ={
   "redstone_torch",
   "slab",
   "sticky_piston",
+  "piston",
   "wood",
   "wool",
   "ice"
@@ -99,30 +100,40 @@ _Bool mask(unsigned char type){
   return mask[type];
 }
 
-unsigned int collerLookup(char type, int value){
+unsigned char lookupParts(char type){
+  if(type == blockLookup("redstone_torch")) return 2;
+  else if(type == blockLookup("redstone")) return 5;
+  else if(type == blockLookup("sticky_piston")) return 3;
+  else return 1;
+}
+
+unsigned int collerLookup(char type, int value, unsigned char part){
 
   //minecraft wool RGB values
-  int woolMap[16] = {
+  unsigned int woolMap[16] = {
     0xE9ECEC,0xF07613,0xBD44B3,0x3AAFD9,
     0xF8C627,0x70B919,0xED8DAC,0x3E4447,
     0x8E8E86,0x158991,0x792AAC,0x35399D,
     0x724728,0x546D1B,0xA12722,0x141519
   };
 
-  int woodmap[4] = {
+  unsigned int woodmap[4] = {
     0xc15000,0x397a03,0x02367f,0x89057a
   };
 
-  //other materials
-  int redstone = 0x560000;
-  int redstone_torch = 0xdb754c;
-  int redstone_block = 0xbf0118;
-  int redstone_repeater = 0xa8a8a8;
-  int redstone_lamp = 0x751d0b;
-  int sticky_piston = 0x5e7a09;
-  int observor = 0x6d6362;
-  int slab = 0x8d9093;
-  int ice = 0xa5c8ff;
+  //common collors
+  unsigned int redstone = 0x560000;
+  unsigned int slime = 0xA9C54E;
+  unsigned int GenericWood = 0xffe9ba;
+  unsigned int machineBase = 0x5b5b5b;
+
+  //uncommon collors
+  unsigned int redstone_block = 0xbf0118;
+  unsigned int redstone_repeater = 0xa8a8a8;
+  unsigned int redstone_lamp = 0x751d0b;
+  unsigned int observor = 0x6d6362;
+  unsigned int slab = 0x8d9093;
+  unsigned int ice = 0xa5c8ff;
 
   if(!mask(type)){
     if(type == blockLookup("wood")){
@@ -141,10 +152,23 @@ unsigned int collerLookup(char type, int value){
       return redstone_repeater;
     }
     else if(type == blockLookup("redstone_torch")){
-      return redstone_torch;
+      switch(part){
+        case 0: return GenericWood; //handle
+        case 1: return redstone; //head
+      }
     }
     else if(type == blockLookup("sticky_piston")){
-      return sticky_piston;
+      switch(part){
+        case 0: return machineBase; //piston base
+        case 1: return GenericWood; //piston head
+        case 2: return slime; //slime splotch
+      }
+    }
+    else if(type == blockLookup("piston")){
+      switch(part){
+        case 0: return machineBase; //piston base
+        case 1: return GenericWood; //piston head
+      }
     }
     else if(type == blockLookup("redstone_lamp")){
       return redstone_lamp;
@@ -258,9 +282,9 @@ struct extents getAllMapExtents(){
 }
 
 //RGB masks
-int R = 0xFF0000;
-int G = 0x00FF00;
-int B = 0x0000FF;
+unsigned int R = 0xFF0000;
+unsigned int G = 0x00FF00;
+unsigned int B = 0x0000FF;
 
 void tint(unsigned int *A, unsigned int C){
   *A = (*A & ~R) | (((*A & R) + C) & R);
@@ -306,7 +330,7 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int collor = backround;
       for(short z = 0; z < mapH; z++){
-        unsigned int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value);
+        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
         if(blockCollor > 0){
           collor = blockCollor;
           float scaler = (float)z / (mapH);
@@ -332,7 +356,7 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int  collor = backround;
       for(short y = mapD - 1; y >= 0; y--){
-        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value);
+        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
         if(blockCollor != 0){
           collor = blockCollor;
           float scaler = (float)(mapD - y) / mapD;
@@ -358,7 +382,7 @@ void buildImmages(){
     for(short y = mapD - 1; y >= 0; y--){
       unsigned int  collor = backround;
       for(short x = 0; x < mapW; x++){
-        unsigned int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value);
+        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
         if(blockCollor != 0){
           collor = blockCollor;
           float scaler = (float)(mapW - x) / mapW;
@@ -877,7 +901,7 @@ char oppDir(char Dir){
     case 'd': return 'u';
     case 'b': return 'f';
     case 'f': return 'b';
-    default : printf("Invalid Direction recieved :%c\n",Dir);
+    default : printf("Invalid Direction recieved :%c > %i\n",Dir,Dir);
   }
   return '\0';
 }
@@ -2348,25 +2372,16 @@ struct buss setKeySchedual(){
 }
 
 struct material{
-  float *Kd;
   char illum;
   float d;
 };
 
-float *getKd(char type, unsigned char value){
-  float* ret = malloc(3 * sizeof(float));
-  int collor = collerLookup(type,value);
-  ret[0] = (float)(collor & R)/R;
-  ret[1] = (float)(collor & G)/G;
-  ret[2] = (float)(collor & B)/B;
-  return ret;
-}
-
-void printMaterial(FILE * Mtl,char* type,unsigned char value,struct material mat){
-  fprintf(Mtl,"newmtl %s:%i\n",type,value);
-  fprintf(Mtl,"Kd %.4f %.4f %.4f \n",mat.Kd[0],mat.Kd[1],mat.Kd[2]);
+void printMaterial(FILE * Mtl,unsigned char type,unsigned char value,unsigned char part,struct material mat){
+  unsigned int Kd = collerLookup(type,value,part);
+  fprintf(Mtl,"newmtl %s:%i:%i\n",reverseBlockLookup(type),value,part);
+  fprintf(Mtl,"Kd %.4f %.4f %.4f \n",(float)(Kd & R)/R,(float)(Kd & G)/G,(float)(Kd & B)/B);
   fprintf(Mtl,"illum %i\n",mat.illum);
-  fprintf(Mtl,"d %f\n",mat.d);
+  fprintf(Mtl,"d %.1f\n",mat.d);
 }
 
 void buildMaterialLibrary(){
@@ -2381,20 +2396,21 @@ void buildMaterialLibrary(){
   unsigned char woodID = blockLookup("wood");
   unsigned char iceID = blockLookup("ice");
 
+
   for(int i = 0; i < 16; i++){
-    materialMap[woolID][i].Kd = getKd(woolID,i);
-    materialMap[woolID][i].illum = 0;
-    materialMap[woolID][i].d = 1;
-    printMaterial(Mtl,"wool",i,materialMap[woolID][i]);
-    free(materialMap[woolID][i].Kd);
+    for(int j = 0; j < lookupParts(woolID); j++){
+      materialMap[woolID][i].illum = 0;
+      materialMap[woolID][i].d = 1;
+      printMaterial(Mtl,woolID,i,j,materialMap[woolID][i]);
+    }
   }
 
   for(int i = 0; i < 4; i++){
-    materialMap[woodID][i].Kd = getKd(woodID,i);
-    materialMap[woodID][i].illum = 0;
-    materialMap[woodID][i].d = 1;
-    printMaterial(Mtl,"wood",i,materialMap[woodID][i]);
-    free(materialMap[woodID][i].Kd);
+    for(int j = 0; j < lookupParts(woodID); j++){
+      materialMap[woodID][i].illum = 0;
+      materialMap[woodID][i].d = 1;
+      printMaterial(Mtl,woodID,i,j,materialMap[woodID][i]);
+    }
   }
 
   for(size_t i = 0; i < numElements; i++){
@@ -2407,21 +2423,13 @@ void buildMaterialLibrary(){
       materialMap[i][0].d = 1;
     }
     if(i != woolID && i != woodID){ //exclude these because we did them in a different for loop
-      materialMap[i][0].Kd = getKd(i,0); //0 because these have only 1 state (unless i want to be crazy with the redstone)
-      printMaterial(Mtl,reverseBlockLookup(i),0,materialMap[i][0]);
-      free(materialMap[i][0].Kd);
+      for(int j = 0; j < lookupParts(i); j++){
+        printMaterial(Mtl,i,0,j,materialMap[i][0]);
+      }
     }
   }
-
   fclose(Mtl);
 }
-
-struct virtex{
-  float x;
-  float z;
-  float y;
-};
-
 
 
 void showReferenceTable(unsigned char referenceTable[6][4],_Bool facePresent[6],_Bool schedualVirtex[8]){
@@ -2518,150 +2526,235 @@ struct redShape getRedStoneShape(short x, short z, short y){
 
 
 _Bool smallBlock(char type){
-  _Bool small = (type == 0 || type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch"));
+  _Bool small = (type == 0 || type == blockLookup("redstone") || type == blockLookup("redstone_repeater") || type == blockLookup("redstone_torch") || type == blockLookup("ice"));
   return small;
 }
 
-struct voxel{
+struct subVoxel{
+  //weather or not the subVoxel exists entierly
+  _Bool exist;
   //demention modifyers
   //L R F B U D
-  _Bool exist;
   float D_mod[6];
+  //what faces are present
   _Bool faces[6];
 };
 
+struct subVoxelPack{
+  //each sub subVoxel
+  struct subVoxel* voxs;
+  //number of subsubVoxels
+  unsigned char num_vox;
+};
 
+unsigned char numerateDir(char Dir){
+  switch(Dir){
+    case 'l': return 0;
+    case 'r': return 1;
+    case 'f': return 2;
+    case 'b': return 3;
+    case 'u': return 4;
+    case 'd': return 5;
+  }
+  return 0;
+}
 
-struct voxel* getVoxels(char type, char Dir, char adjacent[6], short x, short z, short y){
+struct subVoxelPack getsubVoxels(short x, short z, short y){
 
-  struct voxel* ret = malloc(sizeof(struct voxel));
+  unsigned char type = map[x][z][y].type;
+  unsigned char Dir = map[x][z][y].relDir;
 
-  _Bool small = smallBlock(type);
+  char adjacent[6];
+
+  adjacent[0] = (x == mapW - 1? 0 : map[x + 1][z][y].type);
+  adjacent[1] = (x == 0? 0 : map[x - 1][z][y].type);
+  adjacent[2] = (y == mapD - 1? 0 : map[x][z][y + 1].type);
+  adjacent[3] = (y == 0? 0 : map[x][z][y - 1].type);
+  adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
+  adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
+
+  struct subVoxelPack ret;
+
+  //allocate memory and record number of voxels posible
+  unsigned char num_vox = lookupParts(type);
+  ret.num_vox = num_vox;
+  ret.voxs = malloc(num_vox * sizeof(struct subVoxel));
 
   for(int i = 0; i < 6; i++){
-    ret[0].D_mod[i] = .5;
+    //full cube
+    ret.voxs[0].D_mod[i] = .5;
+  }
+
+  if(type == blockLookup("sticky_piston")){
+
+    //they all exist (this is only really usefull for redstone...)
+    ret.voxs[0].exist = 1;
+    ret.voxs[1].exist = 1;
+    ret.voxs[2].exist = 1;
+
+    unsigned char N_RD = numerateDir(oppDir(Dir));
+    unsigned char N_D = numerateDir(Dir);
+
+    float H_depth = 0.3; //head thickness
+    float N_depth = -(.5 - H_depth); //negitive thickness
+    float B_depth = .5 - H_depth; //base thickness
+    float S_Depth = .1; //slime thickness
+    float SN_depth = N_depth - S_Depth;
+
+    for(int i = 0; i < 6; i++){
+      //default depth untill direction is considerered
+      ret.voxs[2].D_mod[i] = .5 + S_Depth;
+      ret.voxs[1].D_mod[i] = .5;
+      //remove faces adjacent to big blocks
+      ret.voxs[0].faces[i] = smallBlock(adjacent[i]);
+      ret.voxs[1].faces[i] = smallBlock(adjacent[i]);
+      ret.voxs[2].faces[i] = 1;
+    }
+
+    //boi do i love refactoring this is a lot better than a huge switch statement with tons of different indexes
+    //DIMENTIONS
+    ret.voxs[0].D_mod[N_D]  = B_depth;
+    ret.voxs[1].D_mod[N_RD] = N_depth;
+    ret.voxs[2].D_mod[N_RD] = SN_depth;
+    //FACES
+    ret.voxs[0].faces[N_D]  = 0;
+    ret.voxs[1].faces[N_RD] = 0;
   }
 
   //a bunch of if then logic to set up possible transforms
   if(type == blockLookup("redstone")){
 
     float height = 0.2;
-    float depth = .3;
+    float depth = .5 - height;
     float negHeight = -(.5 - height);
 
-    ret = realloc(ret,5 * sizeof(struct voxel));
     struct redShape redShape;
     redShape = getRedStoneShape(x,z,y);
-    ret[0].D_mod[4] = negHeight;
-    ret[0].exist = 1;
+    ret.voxs[0].D_mod[4] = negHeight;
+    ret.voxs[0].exist = 1;
     for(int i = 0; i < 6; i++){
-      ret[0].faces[5] = smallBlock(adjacent[5]);
-      ret[0].faces[4] = 1;
+      ret.voxs[0].faces[5] = smallBlock(adjacent[5]);
+      ret.voxs[0].faces[4] = 1;
       if(i != 5 && i != 4 && !redShape.extend[i]){
-        ret[0].faces[i] = 1;
+        ret.voxs[0].faces[i] = 1;
       }
       if(i != 5 && i != 4){
-        ret[0].D_mod[i] = depth;
+        ret.voxs[0].D_mod[i] = depth;
       }
     }
 
-    for(int i = 1; i < 5; i++){
-      ret[i].exist = redShape.extend[i - 1];
-      if(ret[i].exist){
-        ret[i].faces[5] = smallBlock(adjacent[5]);
-        ret[i].faces[4] = 1;
-        ret[i].D_mod[5] = .5;
+    for(int i = 1; i < num_vox; i++){
+      ret.voxs[i].exist = redShape.extend[i - 1];
+      if(ret.voxs[i].exist){
+        ret.voxs[i].faces[5] = smallBlock(adjacent[5]);
+        ret.voxs[i].faces[4] = 1;
+        ret.voxs[i].D_mod[5] = .5;
         for(int j = 0; j < 4; j++){
-          ret[i].faces[j] = 1;
-          ret[i].D_mod[j] = depth;
+          ret.voxs[i].faces[j] = 1;
+          ret.voxs[i].D_mod[j] = depth;
         }
 
         if(redShape.extend[i + 3]){
-          ret[i].D_mod[4] = .5 + height;
-          ret[i].faces[i - 1] = 0;
+          ret.voxs[i].D_mod[4] = .5 + height;
+          ret.voxs[i].faces[i - 1] = 0;
         }
         else{
-          ret[i].D_mod[4] = negHeight;
-          ret[i].faces[i - 1] = 0;
+          ret.voxs[i].D_mod[4] = negHeight;
+          ret.voxs[i].faces[i - 1] = 0;
         }
 
-        ret[i].D_mod[i-1] = .5;
+        ret.voxs[i].D_mod[i-1] = .5;
 
         switch(i - 1){
-          case 0: ret[i].D_mod[1] = negHeight; ret[i].faces[1] = redShape.extend[i + 3]; break;
-          case 1: ret[i].D_mod[0] = negHeight; ret[i].faces[0] = redShape.extend[i + 3]; break;
-          case 2: ret[i].D_mod[3] = negHeight; ret[i].faces[3] = redShape.extend[i + 3]; break;
-          case 3: ret[i].D_mod[2] = negHeight; ret[i].faces[2] = redShape.extend[i + 3]; break;
+          case 0: ret.voxs[i].D_mod[1] = negHeight; ret.voxs[i].faces[1] = redShape.extend[i + 3]; break;
+          case 1: ret.voxs[i].D_mod[0] = negHeight; ret.voxs[i].faces[0] = redShape.extend[i + 3]; break;
+          case 2: ret.voxs[i].D_mod[3] = negHeight; ret.voxs[i].faces[3] = redShape.extend[i + 3]; break;
+          case 3: ret.voxs[i].D_mod[2] = negHeight; ret.voxs[i].faces[2] = redShape.extend[i + 3]; break;
         }
       }
     }
   }
 
   else if(type == blockLookup("slab")){
-    ret[0].D_mod[5] = 0; //how far up from
+    ret.voxs[0].D_mod[5] = 0; //how far up from
   }
 
   else if(type == blockLookup("redstone_torch")){
-    ret = realloc(ret,2 * sizeof(struct voxel));
+
+    unsigned char N_RD = numerateDir(oppDir(Dir));
+    unsigned char N_D = numerateDir(Dir);
+
+    //both voxels always exist
+    ret.voxs[0].exist = 1;
+    ret.voxs[1].exist = 1;
+
+    //defaults untill shifted
     for(int i = 0; i < 6; i++){
-      ret[0].D_mod[i] = .15;
-      ret[0].faces[i] = 1;
-      ret[1].faces[i] = 1;
-    }
-    switch (Dir) {
-      case 'l': ret[0].D_mod[1] = .5; ret[0].faces[1] = 0; ret[0].faces[0] = 0; break;
-      case 'r': ret[0].D_mod[0] = .5; ret[0].faces[0] = 0; ret[0].faces[1] = 0; break;
-      case 'f': ret[0].D_mod[3] = .5; ret[0].faces[3] = 0; ret[0].faces[2] = 0; break;
-      case 'b': ret[0].D_mod[2] = .5; ret[0].faces[2] = 0; ret[0].faces[3] = 0; break;
-      case 'u': ret[0].D_mod[4] = .5; ret[0].faces[5] = 0; ret[0].faces[4] = 0; break;
+      //handle
+      ret.voxs[0].D_mod[i] = .15;
+      //head
+      ret.voxs[1].D_mod[i] = .2; //slightly thiccer
+      //all faces present by default undill direction is considered
+      ret.voxs[1].faces[i] = 1;
+      ret.voxs[0].faces[i] = 1;
     }
 
-    for(int i = 0; i < 6; i++){
-      ret[1].D_mod[i] = .2;
-    }
+    //extend base of handle twards connecting block
+    //shift head over a bit awway from connecting block moves .1 tward Dir
 
-    switch (Dir) {
-      case 'l': ret[1].D_mod[0] = .3; ret[1].D_mod[1] = .1; break;
-      case 'r': ret[1].D_mod[1] = .3; ret[1].D_mod[0] = .1; break;
-      case 'b': ret[1].D_mod[3] = .3; ret[1].D_mod[2] = .1; break;
-      case 'f': ret[1].D_mod[2] = .3; ret[1].D_mod[3] = .1; break;
-      case 'u': ret[1].D_mod[5] = .3; ret[1].D_mod[4] = .1; break;
-    }
+    //DIMENTIONS
+    ret.voxs[0].D_mod[N_RD] = .5;
+    ret.voxs[1].D_mod[N_RD] = .1;
+    ret.voxs[1].D_mod[N_D] = .3;
+    //FACES
+    ret.voxs[0].faces[N_D] = 0;
+    ret.voxs[0].faces[N_RD] = 0;
   }
 
   else if(type == blockLookup("redstone_repeater")){
-    ret[0].D_mod[4] = -.1;
+
+    ret.voxs[0].exist = 1;
+    ret.voxs[0].D_mod[4] = -.1;
+
     for(int i = 0; i < 6; i++){
-      ret[0].faces[i] = !(i == 5 && smallBlock(adjacent[5]));
+      //all true, unless i is 5 and the block below isnt small (or air)
+      ret.voxs[0].faces[i] = !(i == 5 && !smallBlock(adjacent[5]));
     }
   }
 
   else if(type == blockLookup("ice")){
+    ret.voxs[0].exist = 1;
     for(int i = 0; i < 6; i++){
-      ret[0].faces[i] = adjacent[i] == 0;
-    }
-  }
-  else{
-    for(int i = 0; i < 6; i++){
-      ret[0].faces[i] = !((i == 5 && !smallBlock(adjacent[5])) || (!small && !smallBlock(adjacent[i]) && !(adjacent[i] == 0 || adjacent[i] == blockLookup("ice"))));
-      ret[0].D_mod[i] = .5;
+      //only true if the adjacent block is small
+      ret.voxs[0].faces[i] = adjacent[i] == 0;
     }
   }
 
+  else{
+    ret.voxs[0].exist = 1;
+    for(int i = 0; i < 6; i++){
+      //only place face if adjacent side is small or if the block above is a repeater
+      ret.voxs[0].faces[i] = smallBlock(adjacent[i]) && !(i == 4 && adjacent[4] == blockLookup("redstone_repeater")); //this is nice
+    }
+  }
   return ret;
 }
 
+struct virtex{
+  float x;
+  float z;
+  float y;
+};
+
 void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
   fprintf(Obj,"f %i %i %i %i\n",v_index[0] + vc,v_index[1] + vc,v_index[2] + vc,v_index[3] + vc);
-  // getchar();
 }
 
 void printVirtex(FILE * Obj,struct virtex v){
   fprintf(Obj,"v %.2f %.2f %.2f\n",v.x,v.z,v.y);
-  // printf("v %.1f %.1f %.1f\n",v.x,v.z,v.y);
 }
 
-void printVoxel(FILE * Obj, struct voxel vox, int vc, short x, short z, short y){
+void printsubVoxel(FILE * Obj, struct subVoxel vox, int vc, short x, short z, short y){
 
   //virtex map to blace a cuboid
   _Bool vMap[8][3] = {
@@ -2687,6 +2780,10 @@ void printVoxel(FILE * Obj, struct voxel vox, int vc, short x, short z, short y)
     else           v[i].z = z - vox.D_mod[5];
   }
 
+  for(int i = 0; i < 8; i++){
+    printVirtex(Obj,v[i]);
+  }
+
   unsigned char referenceTable[6][4] = {
     {6,4,1,5}, //left
     {8,2,3,7}, //right
@@ -2695,11 +2792,6 @@ void printVoxel(FILE * Obj, struct voxel vox, int vc, short x, short z, short y)
     {5,8,7,6}, //top
     {1,4,3,2}, //bottom
   };
-
-  for(int i = 0; i < 8; i++){
-    // getchar();
-    printVirtex(Obj,v[i]);
-  }
 
   //refectored aww yeee :D
   for( int i = 0; i < 6; i++){
@@ -2721,55 +2813,27 @@ void buildWaveFront(){
     for(short z = 0; z < mapH; z++){
       for(short y = 0; y < mapD; y++){
         if(map[x][z][y].type != 0){
-
           char type = map[x][z][y].type;
-          char* name = reverseBlockLookup(type);
-          char Dir = map[x][z][y].relDir;
+          char* name = reverseBlockLookup(map[x][z][y].type);
           unsigned char data = map[x][z][y].value;
 
-          char adjacent[6];
+          struct subVoxelPack voxPack;
 
-          adjacent[0] = (x == mapW - 1? 0 : map[x + 1][z][y].type);
-          adjacent[1] = (x == 0? 0 : map[x - 1][z][y].type);
-          adjacent[2] = (y == mapD - 1? 0 : map[x][z][y + 1].type);
-          adjacent[3] = (y == 0? 0 : map[x][z][y - 1].type);
-          adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
-          adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
+          voxPack = getsubVoxels(x,z,y);
 
-          struct voxel* vox;
-
-          fprintf(Obj,"usemtl %s",name);
-
-          if(type == blockLookup("wool") || type == blockLookup("wood")) fprintf(Obj,":%i\n",data);
-          else fprintf(Obj,":0\n");
-
-          if(type == blockLookup("redstone")){
-            vox = getVoxels(type,Dir,adjacent,x,z,y);
-            for(int i = 0; i < 5; i++){
-              if(vox[i].exist){
-                vc += 8; //current count of all virtexes
-                printVoxel(Obj,vox[i],vc,x,z,y);
-              }
+          for(int i = 0; i < voxPack.num_vox; i++){
+            if(voxPack.voxs[i].exist){
+              //these blocks have different materials based on the datavalue
+              fprintf(Obj,"usemtl %s",name);
+              if(type == blockLookup("wool") || type == blockLookup("wood"))
+              fprintf(Obj,":%i:%i\n",data,i);
+              //the rest are just 0
+              else fprintf(Obj,":0:%i\n",i);
+              vc += 8; //current count of all virtexes
+              printsubVoxel(Obj,voxPack.voxs[i],vc,x,z,y);
             }
           }
-
-          else if(type == blockLookup("redstone_torch")){
-            vox = getVoxels(type,Dir,adjacent,x,z,y);
-
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,vox[0],vc,x,z,y);
-
-            fprintf(Obj,"usemtl redstone_block:0\n");
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,vox[1],vc,x,z,y);
-          }
-
-          else{
-            vox = getVoxels(type,Dir,adjacent,x,z,y);
-            vc += 8; //current count of all virtexes
-            printVoxel(Obj,vox[0],vc,x,z,y);
-          }
-          free(vox);
+          free(voxPack.voxs);
         }
       }
     }
@@ -3459,8 +3523,8 @@ int main(){
   map[0][0] = malloc(mapD * sizeof(struct block));
 
 
-  struct buss Test = createTestBuss("TEST_1",48,'r','b');
-  struct buss* block = allocateBlock();
+  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
+  // struct buss* block = allocateBlock();
 
   buildOutput(16,'l','b');
 
@@ -3485,13 +3549,10 @@ int main(){
 
   // Test = turnBuss(Test,'l',1,2,'u');
 
-
   buildMaterialLibrary();
   buildWaveFront();
   buildImmages();
   printFileBuffer(script);
-
-
 
   //end portion of main (freeing and closing pointers)
   freeBlockMap();
