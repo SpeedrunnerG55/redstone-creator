@@ -27,7 +27,6 @@ void printFileBuffer(char * arg){
   fprintf(mPtr,"$${\n");
 
   fprintf(mPtr,"%s\n",arg);
-  free(arg);
 
   fprintf(mPtr,"UNSET(@done);\n");
   fprintf(mPtr,"}$$\n");
@@ -55,59 +54,121 @@ void comment(char * message){
   toScript(comment);
 }
 
-char *blockTable[] ={
-  "air",
-  "observor",
-  "redstone",
-  "redstone_block",
-  "redstone_lamp",
-  "redstone_repeater",
-  "redstone_torch",
-  "slab",
-  "sticky_piston",
-  "piston",
-  "wood",
-  "wool",
-  "ice"
+char *blockTable[][16] ={
+  {"air","air"},
+  {"observor","machine_Base"},
+  {"redstone","redstone_Off","redstone_Off","redstone_Off","redstone_Off","redstone_Off"},
+  {"redstone_Block","redstone_Off"},
+  {"redstone_Lamp","redstone_Lamp"},
+  {"redstone_repeater","redstone_Tile","redstone_Off","generic_Wood","generic_Wood","redstone_Off","redstone_Off"},
+  {"redstone_torch","generic_Wood","redstone_On"},
+  {"slab","slab"},
+  {"sticky_piston","machine_Base","generic_Wood","slime"},
+  {"piston","machine_Base","generic_Wood"},
+  {"wood","wood"},
+  {"wool","wool"},
+  {"ice","ice"}
 };
 
 unsigned char blockLookup(char* type){
 
   size_t numElements = sizeof(blockTable) / sizeof(blockTable[0]);
   for(size_t i = 0; i < numElements; i++){
-    if(!strncmp(type,blockTable[i],strlen(blockTable[i])) && strlen(type) == strlen(blockTable[i])){
+    if(!strncmp(type,blockTable[i][0],strlen(blockTable[i][0])) && strlen(type) == strlen(blockTable[i][0])){
       return i;
     }
   }
   //error not in table
-  printf("what is %s?\n",type);
+  printf("blockLookup() - what is %s?\n",type);
   return -1;
+}
+
+_Bool mask(unsigned char type){
+  // if(type == blockLookup("wool")) return 1;
+  return 0;
+}
+
+size_t partCount(unsigned char type){
+  for(int i = 1; i < 16; i++){
+    if(blockTable[type][i] == NULL){
+      return i - 1;
+    }
+  }
+  return 16;
+}
+
+char* getPartnameForBlock(unsigned char type, unsigned char part){
+  unsigned char numTypes = sizeof(blockTable) / sizeof(blockTable[0]);
+  unsigned char numParts = partCount(type);
+  if(type < numTypes){
+    if(part < numParts){
+      return blockTable[type][part + 1];
+    }
+    else{
+      //error not in table
+      printf("getPartnameForBlock() - what is %i?\n",part);
+      return "NULL"; //lol
+    }
+  }
+  else{
+    //error not in table
+    printf("getPartnameForBlock() - what is %i?\n",type);
+    return "NULL"; //lol
+  }
 }
 
 char* reverseBlockLookup(unsigned char type){
   unsigned char numElements = sizeof(blockTable) / sizeof(blockTable[0]);
   if(type < numElements)
-  return blockTable[type];
+  return blockTable[type][0];
   else{
     //error not in table
-    printf("what is %i?\n",type);
+    printf("reverseBlockLookup() - what is %i?\n",type);
     return "NULL"; //lol
   }
 }
 
-_Bool mask(unsigned char type){
-  _Bool mask[] = {0,0,0,0,0,0,0,0,0,0,0};
-  return mask[type];
+//this set is disjointed from the blockTable as in their order and apperarance of materials are NOT and CAN NOT BE the same
+char *partTable[] ={
+  "air",
+  "machine_Base",
+  "redstone_Off",
+  "redstone_On",
+  "redstone_Lamp",
+  "redstone_Tile",
+  "generic_Wood",
+  "slab",
+  "slime",
+  "wood",
+  "wool",
+  "ice"
+};
+
+unsigned char PartLookup(char* partName){
+  size_t numParts = sizeof(partTable) / sizeof(partTable[0]);
+  for(size_t part = 0; part < numParts; part++){
+    if(!strncmp(partName,partTable[part],strlen(partTable[part])) && strlen(partName) == strlen(partTable[part])){
+      return part;
+    }
+  }
+
+  //error not in table
+  printf("PartLookup() - what is %s?\n",partName);
+  return -1;
 }
 
-unsigned char lookupParts(char type){
-  if(type == blockLookup("redstone_torch")) return 2;
-  else if(type == blockLookup("redstone")) return 5;
-  else if(type == blockLookup("sticky_piston")) return 3;
-  else return 1;
+char* reversePartLookup(unsigned char part){
+  unsigned char numElements = sizeof(partTable) / sizeof(partTable[0]);
+  if(part < numElements)
+  return partTable[part];
+  else{
+    //error not in table
+    printf("reversePartLookup() - what is %i?\n",part);
+    return "NULL"; //lol
+  }
 }
 
-unsigned int collerLookup(char type, int value, unsigned char part){
+unsigned int collorLookup(int value, unsigned char part){
 
   //minecraft wool RGB values
   unsigned int woolMap[16] = {
@@ -121,73 +182,26 @@ unsigned int collerLookup(char type, int value, unsigned char part){
     0xc15000,0x397a03,0x02367f,0x89057a
   };
 
-  //common collors
-  unsigned int redstone = 0x560000;
-  unsigned int slime = 0xA9C54E;
-  unsigned int GenericWood = 0xffe9ba;
-  unsigned int machineBase = 0x5b5b5b;
+  if     (part == PartLookup("wood"))           return woodmap[value];
+  else if(part == PartLookup("wool"))           return woolMap[value];
 
-  //uncommon collors
-  unsigned int redstone_block = 0xbf0118;
-  unsigned int redstone_repeater = 0xa8a8a8;
-  unsigned int redstone_lamp = 0x751d0b;
-  unsigned int observor = 0x6d6362;
-  unsigned int slab = 0x8d9093;
-  unsigned int ice = 0xa5c8ff;
+  else if(part == PartLookup("redstone_Off"))   return 0x560000;
+  else if(part == PartLookup("redstone_On"))    return 0xd10000;
+  else if(part == PartLookup("slime"))          return 0xA9C54E;
+  else if(part == PartLookup("generic_Wood"))   return 0xffdb8e;
+  else if(part == PartLookup("machine_Base"))   return 0x3d3d3d;
+  else if(part == PartLookup("redstone_Tile"))  return 0xa8a8a8;
+  else if(part == PartLookup("redstone_Lamp"))  return 0x751d0b;
+  else if(part == PartLookup("slab"))           return 0x8d9093;
+  else if(part == PartLookup("ice"))            return 0xa5c8ff;
+  else if(part == PartLookup("air"))            return 0x000000;
 
-  if(!mask(type)){
-    if(type == blockLookup("wood")){
-      return woodmap[value];
-    }
-    else if(type == blockLookup("wool")){
-      return woolMap[value];
-    }
-    else if(type == blockLookup("redstone")){
-      return redstone;
-    }
-    else if(type == blockLookup("redstone_block")){
-      return redstone_block;
-    }
-    else if(type == blockLookup("redstone_repeater")){
-      return redstone_repeater;
-    }
-    else if(type == blockLookup("redstone_torch")){
-      switch(part){
-        case 0: return GenericWood; //handle
-        case 1: return redstone; //head
-      }
-    }
-    else if(type == blockLookup("sticky_piston")){
-      switch(part){
-        case 0: return machineBase; //piston base
-        case 1: return GenericWood; //piston head
-        case 2: return slime; //slime splotch
-      }
-    }
-    else if(type == blockLookup("piston")){
-      switch(part){
-        case 0: return machineBase; //piston base
-        case 1: return GenericWood; //piston head
-      }
-    }
-    else if(type == blockLookup("redstone_lamp")){
-      return redstone_lamp;
-    }
-    else if(type == blockLookup("observor")){
-      return observor;
-    }
-    else if(type == blockLookup("slab")){
-      return slab;
-    }
-    else if(type == blockLookup("ice")){
-      return ice;
-    }
-  }
+  printf("collorLookup() - could not find collor for %s\n",reversePartLookup(part));
   return 0;
 }
 
 struct block{
-  char type;
+  unsigned char type;
   unsigned char value;
   char relDir;
 };
@@ -312,6 +326,35 @@ _Bool inSel(short x,short z,short y){
   return (x <= sel.l && x >= sel.r && z <= sel.u && z >= sel.d && y <= sel.f && y >= sel.b);
 }
 
+void showFloat(float progress){
+  printf("[");
+  for(short i = 0; i < progress * 10; i++) printf("#");
+  // printf(">");
+  for(short i = progress * 10; i < 10; i++) printf(" ");
+  printf("]");
+}
+
+//3d progress bars! :D
+void showProgress(short ARG,short MAX_ARG, char* message){
+  //calculate progress values are inf when masked
+  float Progress = ((float)(ARG + 1) / MAX_ARG);
+  //at beginning of each process new line to not overwrite any previous output
+  if(Progress == 0) printf("\n");
+
+  //return to write next progression
+  printf("\r");
+
+  //print message of what the process is
+  printf("%-35s",message);
+
+  //show current progress
+  printf(" %.2f %%",Progress * 100); showFloat(Progress);
+
+  //new line when finished so i dont need to impliment a seperate new line in the code seperatly
+  if(Progress == 1) printf("\n");
+}
+
+
 void buildImmages(){
 
   unsigned int selCollor = 0xDBDADC;
@@ -330,11 +373,13 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int collor = backround;
       for(short z = 0; z < mapH; z++){
-        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
-        if(blockCollor > 0){
-          collor = blockCollor;
-          float scaler = (float)z / (mapH);
-          darken(&collor,scaler);
+        if(!mask(map[x][z][y].type)){
+          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+          if(blockCollor > 0){
+            collor = blockCollor;
+            float scaler = (float)z / (mapH);
+            darken(&collor,scaler);
+          }
         }
       }
       if(inSel(x,selZA,y)){
@@ -343,6 +388,7 @@ void buildImmages(){
       printPixel(collor,Top);
     }
     fprintf(Top,"\n");
+    showProgress((mapD - 1) - y,mapD,"scanning y axis");
   }
   fclose(Top);
 
@@ -356,11 +402,13 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int  collor = backround;
       for(short y = mapD - 1; y >= 0; y--){
-        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
-        if(blockCollor != 0){
-          collor = blockCollor;
-          float scaler = (float)(mapD - y) / mapD;
-          darken(&collor,scaler);
+        if(!mask(map[x][z][y].type)){
+          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+          if(blockCollor != 0){
+            collor = blockCollor;
+            float scaler = (float)(mapD - y) / mapD;
+            darken(&collor,scaler);
+          }
         }
       }
       if(inSel(x,z,selYA)){
@@ -369,6 +417,7 @@ void buildImmages(){
       printPixel(collor,Front);
     }
     fprintf(Front,"\n");
+    showProgress((mapH - 1) - z,mapH,"scanning z axis");
   }
   fclose(Front);
 
@@ -382,11 +431,13 @@ void buildImmages(){
     for(short y = mapD - 1; y >= 0; y--){
       unsigned int  collor = backround;
       for(short x = 0; x < mapW; x++){
-        int blockCollor = collerLookup(map[x][z][y].type,map[x][z][y].value,0);
-        if(blockCollor != 0){
-          collor = blockCollor;
-          float scaler = (float)(mapW - x) / mapW;
-          darken(&collor,scaler);
+        if(!mask(map[x][z][y].type)){
+          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+          if(blockCollor != 0){
+            collor = blockCollor;
+            float scaler = (float)(mapW - x) / mapW;
+            darken(&collor,scaler);
+          }
         }
       }
       if(inSel(selXA,z,y)){
@@ -395,6 +446,7 @@ void buildImmages(){
       printPixel(collor,Left);
     }
     fprintf(Left,"\n");
+    showProgress((mapH - 1) - z,mapH,"scanninx z axis");
   }
   fclose(Left);
 }
@@ -440,32 +492,33 @@ void expandBlockMap(unsigned short change, char Dir){
   //memory allocation
   if(Dir == 'r' || Dir == 'l'){
     map = realloc(map,mapW * sizeof(struct block**));
-    for(short i = tempW; i < mapW; i++){
-      map[i] = malloc(mapH * sizeof(struct block*));
-      for(short j = 0; j < mapH; j++){
-        map[i][j] = malloc(mapD * sizeof(struct block));
-        for(short k = 0; k < mapD; k++){
-          map[i][j][k].type = 0;
-          map[i][j][k].value = 0;
-          map[i][j][k].relDir = 0;
+    for(short x = tempW; x < mapW; x++){
+      map[x] = malloc(mapH * sizeof(struct block*));
+      for(short z = 0; z < mapH; z++){
+        map[x][z] = malloc(mapD * sizeof(struct block));
+        for(short y = 0; y < mapD; y++){
+          map[x][z][y].type = 0;
+          map[x][z][y].value = 0;
+          map[x][z][y].relDir = 0;
         }
       }
+      showProgress(x,mapW,"allocating memory for new x's");
     }
     //shift data
     if(Dir == 'r'){
-      unsigned short shiftAmt = mapW - tempW;
-      for(short i = mapW - 1; i >= shiftAmt; i--){
-        map[i] = map[i-shiftAmt];
+      unsigned short shift_Amt = mapW - tempW;
+      for(short x = mapW - 1; x >= shift_Amt; x--){
+        map[x] = map[x-shift_Amt];
       }
       //reallocate new empty space (unshifted portion)
-      for(short i = shiftAmt - 1; i >= 0; i--){
-        map[i] = malloc(mapH * sizeof(struct block*));
-        for(short j = 0; j < mapH; j++){
-          map[i][j] = malloc(mapD * sizeof(struct block));
-          for(short k = 0; k < mapD; k++){
-            map[i][j][k].type = 0;
-            map[i][j][k].value = 0;
-            map[i][j][k].relDir = 0;
+      for(short x = shift_Amt - 1; x >= 0; x--){
+        map[x] = malloc(mapH * sizeof(struct block*));
+        for(short z = 0; z < mapH; z++){
+          map[x][z] = malloc(mapD * sizeof(struct block));
+          for(short y = 0; y < mapD; y++){
+            map[x][z][y].type = 0;
+            map[x][z][y].value = 0;
+            map[x][z][y].relDir = 0;
           }
         }
       }
@@ -480,32 +533,33 @@ void expandBlockMap(unsigned short change, char Dir){
   }
 
   else if(Dir == 'u' || Dir == 'd'){
-    for(short i = 0; i < mapW; i++){
-      map[i] = realloc(map[i],mapH * sizeof(struct block*));
-      for(short j = tempH; j < mapH; j++){
-        map[i][j] = malloc(mapD * sizeof(struct block));
-        for(short k = 0; k < mapD; k++){
-          map[i][j][k].type = 0;
-          map[i][j][k].value = 0;
-          map[i][j][k].relDir = 0;
+    for(short x = 0; x < mapW; x++){
+      map[x] = realloc(map[x],mapH * sizeof(struct block*));
+      for(short z = tempH; z < mapH; z++){
+        map[x][z] = malloc(mapD * sizeof(struct block));
+        for(short y = 0; y < mapD; y++){
+          map[x][z][y].type = 0;
+          map[x][z][y].value = 0;
+          map[x][z][y].relDir = 0;
         }
       }
       //shift data
       if(Dir == 'd'){
-        unsigned short shiftAmt = mapH - tempH;
-        for(short j = mapH - 1; j >= shiftAmt; j--){
-          map[i][j] = map[i][j-shiftAmt];
+        unsigned short shift_Amt = mapH - tempH;
+        for(short z = mapH - 1; z >= shift_Amt; z--){
+          map[x][z] = map[x][z-shift_Amt];
         }
         //reallocate new empty space (unshifted portion)
-        for(short j = shiftAmt - 1; j >= 0; j--){
-          map[i][j] = malloc(mapD * sizeof(struct block));
-          for(short k = 0; k < mapD; k++){
-            map[i][j][k].type = 0;
-            map[i][j][k].value = 0;
-            map[i][j][k].relDir = 0;
+        for(short z = shift_Amt - 1; z >= 0; z--){
+          map[x][z] = malloc(mapD * sizeof(struct block));
+          for(short y = 0; y < mapD; y++){
+            map[x][z][y].type = 0;
+            map[x][z][y].value = 0;
+            map[x][z][y].relDir = 0;
           }
         }
       }
+      showProgress(x,mapW,"allocating memory for new z's");
     }
     if(Dir == 'd'){
       //adjust selection for shift
@@ -517,30 +571,31 @@ void expandBlockMap(unsigned short change, char Dir){
   }
 
   else if(Dir == 'f' || Dir == 'b'){
-    for(short i = 0; i < mapW; i++){
-      for(short j = 0; j < mapH; j++){
-        map[i][j] = realloc(map[i][j],mapD * sizeof(struct block));
-        for(short k = tempD; k < mapD; k++){
-          map[i][j][k].type = 0;
-          map[i][j][k].value = 0;
-          map[i][j][k].relDir = 0;
+    for(short x = 0; x < mapW; x++){
+      for(short z = 0; z < mapH; z++){
+        map[x][z] = realloc(map[x][z],mapD * sizeof(struct block));
+        for(short y = tempD; y < mapD; y++){
+          map[x][z][y].type = 0;
+          map[x][z][y].value = 0;
+          map[x][z][y].relDir = 0;
         }
         //shift data
         if(Dir == 'b'){
-          unsigned short shiftAmt = mapD - tempD;
-          for(short k = mapD - 1; k >= shiftAmt; k--){
-            map[i][j][k].type = map[i][j][k-shiftAmt].type;
-            map[i][j][k].value = map[i][j][k-shiftAmt].value;
-            map[i][j][k].relDir = map[i][j][k-shiftAmt].relDir;
+          unsigned short shift_Amt = mapD - tempD;
+          for(short y = mapD - 1; y >= shift_Amt; y--){
+            map[x][z][y].type = map[x][z][y-shift_Amt].type;
+            map[x][z][y].value = map[x][z][y-shift_Amt].value;
+            map[x][z][y].relDir = map[x][z][y-shift_Amt].relDir;
           }
           //0 the data unshifted
-          for(short k = shiftAmt - 1; k >= 0; k--){
-            map[i][j][k].type = 0;
-            map[i][j][k].value = 0;
-            map[i][j][k].relDir = 0;
+          for(short y = shift_Amt - 1; y >= 0; y--){
+            map[x][z][y].type = 0;
+            map[x][z][y].value = 0;
+            map[x][z][y].relDir = 0;
           }
         }
       }
+      showProgress(x,mapW,"allocating memory for new y's");
     }
   }
   if(Dir == 'b'){
@@ -633,6 +688,7 @@ void setBlock(struct block B, _Bool wait){
   toScript(command);
   if(wait)
   waitUntlDone();
+
   //in memory
   struct extents selExt = getAllSelExtents();
 
@@ -695,7 +751,6 @@ void shift(unsigned short amount,char Dir){
     snprintf(command,commandBuffer,"echo(//shift %i %c);\n",amount,Dir);
     toScript(command);
     selectionShift(Dir,amount);
-    wait();
   }
 }
 
@@ -707,14 +762,15 @@ struct block*** copySel(){
     for(short j = selExt.d; j <= selExt.u; j++){
       ret[i-selExt.r][j-selExt.d] = malloc(selD * sizeof(struct block));
       for(short k = selExt.b; k <= selExt.f; k++){
-
         //get blocks, the right blocks and put them right in the right location
         ret[i-selExt.r][j-selExt.d][k-selExt.b].type = map[i][j][k].type;
         ret[i-selExt.r][j-selExt.d][k-selExt.b].value = map[i][j][k].value;
+        ret[i-selExt.r][j-selExt.d][k-selExt.b].relDir = map[i][j][k].relDir;
 
         //remove old block
         map[i][j][k].type = 0;
         map[i][j][k].value = 0;
+        map[i][j][k].relDir = 0;
       }
     }
   }
@@ -873,7 +929,6 @@ void expand(unsigned short amount,char Dir){
     return;
   }
 
-  wait();
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//expand %i %c);\n",amount,Dir);
   toScript(command);
@@ -901,7 +956,7 @@ char oppDir(char Dir){
     case 'd': return 'u';
     case 'b': return 'f';
     case 'f': return 'b';
-    default : printf("Invalid Direction recieved :%c > %i\n",Dir,Dir);
+    default : printf("%15s - Invalid Direction received :%c > %i\n","oppDir()",Dir,Dir);
   }
   return '\0';
 }
@@ -914,7 +969,7 @@ char turnDir(char Dir, char turnDir){
     case 'f': dirNum = 1; break;
     case 'l': dirNum = 2; break;
     case 'b': dirNum = 3; break;
-    default : printf("Invalid Turn Direction recieved :%c\n",Dir);
+    default : printf("%15s - Invalid Direction received :%c > %i\n","turnDir()",Dir,Dir);
   }
   if(turnDir == 'l'){
     dirNum++;
@@ -935,7 +990,6 @@ char turnDir(char Dir, char turnDir){
 }
 
 void contract(unsigned short amount,char Dir){
-  wait();
 
   char command[commandBuffer];
   snprintf(command,commandBuffer,"echo(//contract %i %c);\n",amount,Dir);
@@ -954,7 +1008,7 @@ void contract(unsigned short amount,char Dir){
   updateSelDementions(Dir);
 }
 
-void setRepeater(char Dir){
+void setRepeater(char Dir,unsigned char m){
   comment("placing repeater based on direction");
   char* type = "redstone_repeater";
   unsigned char offset = 0;
@@ -965,7 +1019,11 @@ void setRepeater(char Dir){
     case 'l': offset = 3; break;
   }
 
-  char dirSet[4] = {(0+offset)%4,(1+offset)%4,(2+offset)%4,(3+offset)%4};
+  char dirSet[4];
+
+  for(int i = 0; i < 4; i++){
+    dirSet[i] = (((i + offset) % 4) + (m * 4));
+  }
 
   //pack B
   struct block B;
@@ -1193,7 +1251,6 @@ unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, 
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
-  B.relDir = '\0';
 
   comment("wire");
   //current position of end of selection
@@ -1210,13 +1267,13 @@ unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, 
   if(inStrength < amount && outStrength < outToll){
     shift(inStrength,Dir);
     pos += inStrength;
-    setRepeater(Dir);
+    setRepeater(Dir,0);
     outStrength = 16 + pos - amount;
   }
   //check to see if there is enough room for at least 1 full 16 line
   if((amount - inStrength - 1) / 16 > 0){
     shift(16,Dir);
-    setRepeater(Dir);
+    setRepeater(Dir,0);
     //check to see if there is at least one more if so use stack to fill in the rest
     if(((amount - inStrength - 1) / 16 > 0)){
       expand(15,oppDir(Dir));
@@ -1236,7 +1293,7 @@ unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, 
   if(outStrength < outToll){
     shift(amount - pos - 1,Dir);
     pos += amount - pos - 1;
-    setRepeater(Dir);
+    setRepeater(Dir,0);
     outStrength = 16 + pos - amount;
     shift(1,Dir);
     outStrength = 15;
@@ -1379,12 +1436,10 @@ void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, un
   struct block bottom;
   bottom.type = blockLookup("wood");
   bottom.value = 2;
-  bottom.relDir = '\0';
 
   struct block top;
   top.type = blockLookup("wood");
   top.value = 3;
-  top.relDir = '\0';
 
   comment("buildDecoderTop");
   unsigned short entries = pow(2,inBits);
@@ -1444,9 +1499,8 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
 
   //pack B
   struct block B;
-  B.type = blockLookup("redstone_block");
+  B.type = blockLookup("redstone_Block");
   B.value = 0;
-  B.relDir = '\0';
 
   comment("fillBinPtrn");
   //number of entries
@@ -1511,7 +1565,6 @@ void tower(unsigned char amount,char up, unsigned char value){
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
-  B.relDir = '\0';
 
   comment("tower");
   amount--;
@@ -1543,9 +1596,8 @@ void flipFlop(char Dir){
 
   //pack B
   struct block B;
-  B.type = blockLookup("redstone_block");
+  B.type = blockLookup("redstone_Block");
   B.value = 0;
-  B.relDir = '\0';
 
   comment("FlipFlop");
   shift(1,'u');
@@ -1579,13 +1631,11 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
-  B1.relDir = '\0';
 
   //pack B
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 7;
-  B2.relDir = '\0';
 
   //create 1 1x15 wire section
   setBlock(B1,1); //a little touch to make it look a little better
@@ -1594,7 +1644,7 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   stack(13,oppDir(inSide),""); //1x15 wire section
   shift(1,inSide);
   shift(1,'u');
-  setRepeater(outSide); //place first repeater at end of first output wire
+  setRepeater(outSide,0); //place first repeater at end of first output wire
   expand(14,oppDir(inSide));
   replace("air",0,0,"redstone",1,0); //plce redstone on wire
 
@@ -1642,7 +1692,7 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   //trim of ends
   stack(1,oppDir(inSide),""); //stack the 4 1x15 wire once
   shift(trimAmt,oppDir(inSide));
-  stack(wireStacks-1,oppDir(inSide),""); //then stack to the rest 1 - with the strange shift
+  stack(wireStacks-1,oppDir(inSide),""); //then stack to the rest 1() - with the strange shift
   shift(trimAmt,inSide);
 
   //negate expantion for wire extension and bring selection to 1x1x1
@@ -1668,7 +1718,6 @@ void buildandSupport(short inBits, unsigned char outBits, short inSide, char stS
   struct block B;
   B.type = blockLookup("wool");
   B.value = 4;
-  B.relDir = '\0';
 
   setBlock(B,1);
   overlay("redstone",0);
@@ -1742,7 +1791,6 @@ void lvlDown(char stSide){
   struct block B;
   B.type = blockLookup("wool");
   B.value = 4;
-  B.relDir = '\0';
 
   comment("lvlDown");
   shift(1,stSide);
@@ -1830,9 +1878,8 @@ void buildSegment(char Dir){
 
   //pack B
   struct block B;
-  B.type = blockLookup("redstone_lamp");
+  B.type = blockLookup("redstone_Lamp");
   B.value = 0;
-  B.relDir = '\0';
 
   shift(1,Dir);
   setBlock(B,1);
@@ -1848,7 +1895,6 @@ void seperateNibble(char* type, unsigned char value, char inSide, char stSide){
   struct block B;
   B.type = blockLookup(type);
   B.value = value;
-  B.relDir = '\0';
 
   shift(6,oppDir(inSide));
   shift(2,'d');
@@ -1875,13 +1921,11 @@ void build7segLights(char* type, unsigned char value, char stSide, char inSide){
   struct block ice;
   ice.type = blockLookup("ice");
   ice.value = value;
-  ice.relDir = '\0';
 
   //pack case
   struct block casing;
   casing.type = blockLookup(type);
   casing.value = 15;
-  casing.relDir = '\0';
 
   expand(12,'u');
   expand(8,oppDir(stSide));
@@ -2155,7 +2199,7 @@ struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[
     inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
 
     //where the busses meet
-    stairs("redstone_lamp",0,oppDir(forward),'u',2);
+    stairs("redstone_Lamp",0,oppDir(forward),'u',2);
 
     //wire to output
     inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
@@ -2197,15 +2241,32 @@ void breakout(unsigned char value,char outSide){
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
-  B.relDir = '\0';
 
   shift(1,outSide);
   setBlock(B,1);
   shift(1,'u');
-  setRepeater(outSide);
+  setRepeater(outSide,0);
   shift(5,'d');
   shift(1,oppDir(outSide));
   comment("endbreakout");
+}
+
+void tower2(unsigned char value,unsigned char levels){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+
+  comment("tower2");
+  setBlock(B,1);
+  shift(1,'u');
+  setredTorch('u');
+  expand(1,'d');
+  stack(levels,'u',"s");
+  replace("redstone_torch",0,0,"redstone",1,0);
+  contract(1,'d');
+  comment("endtower2");
 }
 
 void shiftBit(unsigned char value, char shiftDir, char outSide, unsigned char shift_amt){
@@ -2215,18 +2276,9 @@ void shiftBit(unsigned char value, char shiftDir, char outSide, unsigned char sh
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
-  B.relDir = '\0';
 
-  setBlock(B,1);
   if(shift_amt == 1){
-    shift(1,shiftDir);
-    setredTorch(shiftDir);
-    shift(1,'u');
-    setBlock(B,1);
-    shift(1,oppDir(shiftDir));
-    setredTorch(oppDir(shiftDir));
-    shift(1,'u');
-    setBlock(B,1);
+    tower2(value,1);
   }
   for(unsigned char i = 0; i < 2 * shift_amt; i++){
     if((i !=  (3 * shift_amt) - 1)){
@@ -2240,13 +2292,14 @@ void shiftBit(unsigned char value, char shiftDir, char outSide, unsigned char sh
   comment("endshiftBit");
 }
 
-void cycleBit(char *type, unsigned char value,char shiftDir, char inSide, char outSide, unsigned char shift_amt, unsigned char shiftLength, unsigned char bitIndex){
+void cycleBit(unsigned char value,char shiftDir, char inSide, char outSide, unsigned char shift_amt, unsigned char shiftLength, unsigned char bitIndex){
+
+  char* type = "wool";
 
   //pack B
   struct block B;
-  B.type = blockLookup("redstone_lamp");
-  B.value = 0;
-  B.relDir = '\0';
+  B.type = blockLookup("wool");
+  B.value = value;
 
   comment("cycleBit");
   setBlock(B,1);
@@ -2254,19 +2307,30 @@ void cycleBit(char *type, unsigned char value,char shiftDir, char inSide, char o
   unsigned char strength = 13;
   shift(1,oppDir(inSide));
   stairs(type,value,oppDir(inSide),'u',1);
-  strength -= 1;
+  strength--;
   strength = wire(strength,4,value,(bitIndex * 2),oppDir(inSide));
   stairs(type,value,oppDir(shiftDir),'u',2);
   strength -= 2;
   strength = wire(strength,2,value,(shiftLength * 2) - (3 + (shift_amt * 2) - 1),oppDir(shiftDir));
   strength = wire(strength,5,value,(bitIndex * 2),outSide);
   stairs(type,value,inSide,'u',1);
-  strength -= 1;
+  strength--;
   shift(1,'u');
   shift(1,outSide);
   setBlock(B,1);
   breakout(value,outSide);
   comment("endcycleBit");
+}
+
+void invertor(char value, char dir){
+  struct block B;
+  B.value = value;
+  B.type = blockLookup("wool");
+  B.relDir = '\0';
+  shift(1,oppDir(dir));
+  setBlock(B,1);
+  shift(1,dir);
+  setredTorch(dir);
 }
 
 struct buss keyShiftSide(struct buss key,_Bool half,unsigned char shiftIndex){
@@ -2287,28 +2351,43 @@ struct buss keyShiftSide(struct buss key,_Bool half,unsigned char shiftIndex){
     offset = 0;
   }
 
+  //hack to fix a coupple of inverted bits pls somone make this better
+  if(shiftIndex == 0){
+    shift(2,oppDir(key.loc.direction));
+    invertor(key.collors[offset],key.loc.direction);
+    shift(2,oppDir(key.loc.stSide));
+    invertor(key.collors[offset + 1],key.loc.direction);
+    shift(2,key.loc.stSide);
+    shift(2,key.loc.direction);
+    key.strength[offset] = 15;
+    key.strength[offset + 1] = 15;
+  }
+
   struct buss temp;
   temp.collors = malloc(shift_amt);
   temp.strength = malloc(shift_amt);
+  temp.name = "temp_shift_Buss";
 
   for(unsigned char i = 0; i < shiftLength; i++){
     if(i < shift_amt){
-      cycleBit("wool",key.collors[i + offset],Stside,inSide,outSide,shift_amt,shiftLength,i); //cycle bit to other side
+      cycleBit(key.collors[i + offset],Stside,inSide,outSide,shift_amt,shiftLength,i); //cycle bit to other side
       shift((shiftLength * 2) - (shift_amt * 2) - 2, Stside); //move selection back to this side
       short index = i + offset + shiftLength - shift_amt;
       temp.collors[i] = key.collors[index]; //save collor into temp for when i need it later (swap)
-      key.collors[index] = key.collors[i + offset]; //get coller from other side
+      key.collors[index] = key.collors[i + offset]; //get collor from other side
       key.strength[index] = 15;
     }
     else{
       short index = i + offset - shift_amt;
-      shiftBit(key.collors[i + offset],Stside,outSide,shift_amt); //shift over by amount
-      shift((shift_amt * 2) + 2, oppDir(Stside));
-      if((i >= shiftLength - shift_amt)){ //get the coller from the the temp buss because this is actually a swap
+      if((i >= shiftLength - shift_amt)){ //get the collor from the the temp buss because this is actually a swap
+        shiftBit(temp.collors[(i + shift_amt) - shiftLength],Stside,outSide,shift_amt); //shift over by amount
+        shift((shift_amt * 2) + 2, oppDir(Stside));
         key.collors[index] = temp.collors[(i + shift_amt) - shiftLength];
         key.strength[index] = 15;
       }
-      else{ //get the coller to the left
+      else{ //get the collor to the left
+        shiftBit(key.collors[i + offset],Stside,outSide,shift_amt); //shift over by amount
+        shift((shift_amt * 2) + 2, oppDir(Stside));
         key.collors[index] = key.collors[i + offset];
         key.strength[index] = 15;
       }
@@ -2318,6 +2397,8 @@ struct buss keyShiftSide(struct buss key,_Bool half,unsigned char shiftIndex){
   //get back to start at end of second shift
   if(half)
   shift((PC1Length) * 2,Stside);
+
+  freeBuss(temp);
 
   comment("endkeyShiftSide");
   return key;
@@ -2330,6 +2411,76 @@ struct buss Keyshift(struct buss key,unsigned char shiftIndex){
   shift(4,'u');
   comment("endKeyshift");
   return key;
+}
+
+struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool flip){
+  comment("bussUp");
+
+  if(flip){
+    arg.loc.direction = oppDir(arg.loc.direction);
+  }
+
+  char Dir = arg.loc.direction;
+
+
+  unsigned char width = arg.width;
+  for(unsigned char i = 0; i < width; i++){
+
+    //pack B
+    struct block B;
+    B.type = blockLookup("wool");
+    if( i != width - 1)
+    B.value = arg.collors[i+1];
+
+    if(type){
+      if(i == 0){
+        tower(distance,up,arg.collors[0]);
+
+        flipFlop(Dir);
+
+        expand(distance - 2,oppDir(up));
+        expand(1,oppDir(arg.loc.stSide));
+
+        if(up == 'd'){
+          shift(3,oppDir(Dir));
+          shift(2,'u');
+          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
+        }
+        else{
+          expand(2,'d');
+          shift(3,oppDir(Dir));
+          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
+          contract(2,'u');
+        }
+
+        shift(1,up);
+        contract(distance - 2,up);
+        expand(2,Dir);
+        stack(arg.width - 1,oppDir(arg.loc.stSide),"");
+        contract(2,oppDir(Dir));
+        contract(1,arg.loc.stSide);
+      }
+      if(i != width - 1){
+        shift(2,oppDir(arg.loc.stSide));
+        setBlock(B,1);
+      }
+      else{
+        shift(1,'d');
+        shift(3,Dir);
+      }
+      arg.strength[i] = 14;
+    }
+    else{
+      tower2(arg.collors[i],distance / 2);
+      if(i != width - 1){
+        shift(distance,oppDir(up));
+        shift(2,oppDir(arg.loc.stSide));
+      }
+    }
+  }
+  shift((width - 1) * 2,arg.loc.stSide);
+  comment("endbussUp");
+  return arg;
 }
 
 struct buss setKeySchedual(){
@@ -2357,6 +2508,7 @@ struct buss setKeySchedual(){
   shift(1,'u');
 
   size_t num_shifts = sizeof(keyshifts) / sizeof(keyshifts[0]);
+  // size_t num_shifts = 4;
 
   struct buss roundKey;
 
@@ -2371,62 +2523,86 @@ struct buss setKeySchedual(){
   return roundKey;
 }
 
-struct material{
-  char illum;
-  float d;
-};
+//i have no idea what this value does all i know it is in RGB format
+unsigned int KaLookup(unsigned char part){
+  if(part == PartLookup("ice")) return 0x030303;
+  else if(part == PartLookup("slime")) return 0x030303;
+  else if(part == PartLookup("redstone_On")) return 0x505050;
+  else return 0x000000;
+}
 
-void printMaterial(FILE * Mtl,unsigned char type,unsigned char value,unsigned char part,struct material mat){
-  unsigned int Kd = collerLookup(type,value,part);
-  fprintf(Mtl,"newmtl %s:%i:%i\n",reverseBlockLookup(type),value,part);
+//i have no idea what this value does all i know it is in RGB format
+unsigned int KsLookup(unsigned char part){
+  if(part == PartLookup("ice")) return 0x030303;
+  else if(part == PartLookup("slime")) return 0x030303;
+  else return 0x000000;
+}
+
+//i have no idea what this value does all i know it is in RGB format
+unsigned int TfLookup(unsigned char part){
+  if(part == PartLookup("ice")) return 0x030303;
+  else if(part == PartLookup("slime")) return 0x030303;
+  else return 0x000000;
+}
+
+//illumination format 4 for transparrant materials
+char illumLookup(unsigned char part){
+  if(part == PartLookup("ice")) return 4;
+  else if(part == PartLookup("slime")) return 4;
+  else return 0;
+}
+
+//how mutch the light is disolved while passing through transparrand material
+float dLookup(unsigned char part){
+  if(part == PartLookup("ice")) return .3;
+  else if(part == PartLookup("slime")) return .6;
+  else return 1;
+}
+
+void printMaterial(FILE * Mtl,unsigned char value,unsigned char part){
+  unsigned int Ka = KaLookup(part);
+  unsigned int Kd = collorLookup(value,part);
+  unsigned int Ks = KsLookup(part);
+  unsigned int Tf = TfLookup(part);
+  char illum = illumLookup(part);
+  float d = dLookup(part);
+
+  fprintf(Mtl,"\n############################\n\n");
+  fprintf(Mtl,"newmtl %s:%i\n\n",reversePartLookup(part),value);
+
+  fprintf(Mtl,"# Collor Data #\n");
+  fprintf(Mtl,"Ka %.4f %.4f %.4f \n",(float)(Ka & R)/R,(float)(Ka & G)/G,(float)(Ka & B)/B);
   fprintf(Mtl,"Kd %.4f %.4f %.4f \n",(float)(Kd & R)/R,(float)(Kd & G)/G,(float)(Kd & B)/B);
-  fprintf(Mtl,"illum %i\n",mat.illum);
-  fprintf(Mtl,"d %.1f\n",mat.d);
+  fprintf(Mtl,"Ks %.4f %.4f %.4f \n",(float)(Ks & R)/R,(float)(Ks & G)/G,(float)(Ks & B)/B);
+  fprintf(Mtl,"Tf %.4f %.4f %.4f \n",(float)(Tf & R)/R,(float)(Tf & G)/G,(float)(Tf & B)/B);
+
+  fprintf(Mtl,"# Reflection Data #\n");
+  fprintf(Mtl,"illum %i\n",illum);
+  fprintf(Mtl,"d %.1f\n",d);
 }
 
 void buildMaterialLibrary(){
 
   FILE * Mtl = fopen("virtexMap.mtl","w");//file pointer
 
-  size_t numElements = sizeof(blockTable) / sizeof(blockTable[0]);
+  size_t numParts = sizeof(partTable) / sizeof(partTable[0]);
 
-  struct material materialMap[numElements][16];
-
-  unsigned char woolID = blockLookup("wool");
-  unsigned char woodID = blockLookup("wood");
-  unsigned char iceID = blockLookup("ice");
-
+  unsigned char woolID = PartLookup("wool");
+  unsigned char woodID = PartLookup("wood");
 
   for(int i = 0; i < 16; i++){
-    for(int j = 0; j < lookupParts(woolID); j++){
-      materialMap[woolID][i].illum = 0;
-      materialMap[woolID][i].d = 1;
-      printMaterial(Mtl,woolID,i,j,materialMap[woolID][i]);
-    }
+    printMaterial(Mtl,i,woolID);
   }
 
   for(int i = 0; i < 4; i++){
-    for(int j = 0; j < lookupParts(woodID); j++){
-      materialMap[woodID][i].illum = 0;
-      materialMap[woodID][i].d = 1;
-      printMaterial(Mtl,woodID,i,j,materialMap[woodID][i]);
-    }
+    printMaterial(Mtl,i,woodID);
   }
 
-  for(size_t i = 0; i < numElements; i++){
-    if(i == iceID){
-      materialMap[i][0].illum = 4; //ice is transparrant
-      materialMap[i][0].d = .3;
-    }
-    else{
-      materialMap[i][0].illum = 0;
-      materialMap[i][0].d = 1;
-    }
+  for(size_t i = 0; i < numParts; i++){
     if(i != woolID && i != woodID){ //exclude these because we did them in a different for loop
-      for(int j = 0; j < lookupParts(i); j++){
-        printMaterial(Mtl,i,0,j,materialMap[i][0]);
-      }
+      printMaterial(Mtl,0,i);
     }
+    showProgress(i,numParts,"printing material library");
   }
   fclose(Mtl);
 }
@@ -2483,9 +2659,15 @@ struct redShape{
   _Bool extend[8];
 };
 
-struct redShape getRedStoneShape(short x, short z, short y){
+_Bool redType(char type){
+  return type == blockLookup("redstone") || type == blockLookup("redstone_Block") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_torch") || type == blockLookup("redstone_repeater");
+}
 
-  char redType = blockLookup("redstone");
+_Bool solid(char type){
+  return type == blockLookup("wood") || type == blockLookup("wool") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_Block");
+}
+
+struct redShape getRedStoneShape(short x, short z, short y){
 
   _Bool lastX = (x == mapW - 1);
   _Bool frstX = (x == 0);
@@ -2494,32 +2676,34 @@ struct redShape getRedStoneShape(short x, short z, short y){
   _Bool lastY = (y == mapD - 1);
   _Bool frstY = (y == 0);
 
-  _Bool L = !lastX && map[x+1][z][y].type != 0;
-  _Bool R = !frstX && map[x-1][z][y].type != 0;
-  _Bool B = !lastY && map[x][z][y+1].type != 0;
-  _Bool F = !frstY && map[x][z][y-1].type != 0;
+  _Bool L = !lastX && redType(map[x+1][z][y].type);
+  _Bool R = !frstX && redType(map[x-1][z][y].type);
+  _Bool F = !lastY && redType(map[x][z][y+1].type);
+  _Bool B = !frstY && redType(map[x][z][y-1].type);
 
-  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == redType;
-  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == redType;
-  _Bool BU = !lastZ && !lastY && map[x][z+1][y+1].type == redType;
-  _Bool FU = !lastZ && !frstY && map[x][z+1][y-1].type == redType;
+  _Bool U = !lastZ && solid(map[x][z+1][y].type);
 
-  _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == redType;
-  _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == redType;
-  _Bool BD = !frstZ && !lastY && map[x][z-1][y+1].type == redType;
-  _Bool FD = !frstZ && !frstY && map[x][z-1][y-1].type == redType;
+  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == blockLookup("redstone") && !U;
+  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == blockLookup("redstone") && !U;
+  _Bool FU = !lastZ && !lastY && map[x][z+1][y+1].type == blockLookup("redstone") && !U;
+  _Bool BU = !lastZ && !frstY && map[x][z+1][y-1].type == blockLookup("redstone") && !U;
+
+  _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == blockLookup("redstone") && !solid(map[x+1][z][y].type);
+  _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == blockLookup("redstone") && !solid(map[x-1][z][y].type);
+  _Bool FD = !frstZ && !lastY && map[x][z-1][y+1].type == blockLookup("redstone") && !solid(map[x][z][y+1].type);
+  _Bool BD = !frstZ && !frstY && map[x][z-1][y-1].type == blockLookup("redstone") && !solid(map[x][z][y-1].type);
 
   struct redShape ret;
 
-  ret.extend[0] = (L || (!L && LD));
-  ret.extend[1] = (R || (!R && RD));
-  ret.extend[2] = (B || (!B && BD));
-  ret.extend[3] = (F || (!F && FD));
+  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !frstX && solid(map[x+1][z][y].type));
+  ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[x-1][z][y].type));
+  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !frstX && solid(map[x][z][y+1].type));
+  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstX && solid(map[x][z][y-1].type));
 
   ret.extend[4] = LU;
   ret.extend[5] = RU;
-  ret.extend[6] = BU;
-  ret.extend[7] = FU;
+  ret.extend[6] = FU;
+  ret.extend[7] = BU;
 
   return ret;
 }
@@ -2555,6 +2739,8 @@ unsigned char numerateDir(char Dir){
     case 'b': return 3;
     case 'u': return 4;
     case 'd': return 5;
+    //error
+    default : printf("%15s - Invalid Direction received :%c > %i\n","numerateDir()",Dir,Dir);
   }
   return 0;
 }
@@ -2562,7 +2748,8 @@ unsigned char numerateDir(char Dir){
 struct subVoxelPack getsubVoxels(short x, short z, short y){
 
   unsigned char type = map[x][z][y].type;
-  unsigned char Dir = map[x][z][y].relDir;
+  unsigned char value = map[x][z][y].value;
+  char Dir = map[x][z][y].relDir;
 
   char adjacent[6];
 
@@ -2576,7 +2763,7 @@ struct subVoxelPack getsubVoxels(short x, short z, short y){
   struct subVoxelPack ret;
 
   //allocate memory and record number of voxels posible
-  unsigned char num_vox = lookupParts(type);
+  size_t num_vox = partCount(type);
   ret.num_vox = num_vox;
   ret.voxs = malloc(num_vox * sizeof(struct subVoxel));
 
@@ -2587,19 +2774,19 @@ struct subVoxelPack getsubVoxels(short x, short z, short y){
 
   if(type == blockLookup("sticky_piston")){
 
+    unsigned char N_RD = numerateDir(oppDir(Dir));
+    unsigned char N_D = numerateDir(Dir);
+
     //they all exist (this is only really usefull for redstone...)
     ret.voxs[0].exist = 1;
     ret.voxs[1].exist = 1;
     ret.voxs[2].exist = 1;
 
-    unsigned char N_RD = numerateDir(oppDir(Dir));
-    unsigned char N_D = numerateDir(Dir);
-
     float H_depth = 0.3; //head thickness
     float N_depth = -(.5 - H_depth); //negitive thickness
     float B_depth = .5 - H_depth; //base thickness
-    float S_Depth = .1; //slime thickness
-    float SN_depth = N_depth - S_Depth;
+    float S_Depth = .05; //slime thickness
+    float SN_depth = N_depth - .2;
 
     for(int i = 0; i < 6; i++){
       //default depth untill direction is considerered
@@ -2635,15 +2822,13 @@ struct subVoxelPack getsubVoxels(short x, short z, short y){
     for(int i = 0; i < 6; i++){
       ret.voxs[0].faces[5] = smallBlock(adjacent[5]);
       ret.voxs[0].faces[4] = 1;
-      if(i != 5 && i != 4 && !redShape.extend[i]){
-        ret.voxs[0].faces[i] = 1;
-      }
+      ret.voxs[0].faces[i] = (i != 5 && i != 4 && !redShape.extend[i]);
+
       if(i != 5 && i != 4){
         ret.voxs[0].D_mod[i] = depth;
       }
     }
-
-    for(int i = 1; i < num_vox; i++){
+    for(size_t i = 1; i < num_vox; i++){
       ret.voxs[i].exist = redShape.extend[i - 1];
       if(ret.voxs[i].exist){
         ret.voxs[i].faces[5] = smallBlock(adjacent[5]);
@@ -2711,15 +2896,83 @@ struct subVoxelPack getsubVoxels(short x, short z, short y){
     ret.voxs[0].faces[N_RD] = 0;
   }
 
+  //"redstone_repeater","redstone_Tile","redstone_Off","generic_Wood","redstone_Off"},
   else if(type == blockLookup("redstone_repeater")){
 
-    ret.voxs[0].exist = 1;
-    ret.voxs[0].D_mod[4] = -.1;
+    unsigned char t = value / 4; //repeater t
+
+    unsigned char N_RD = numerateDir(oppDir(Dir));
+    unsigned char N_D = numerateDir(Dir);
+
+    float head_width = .12;  // head_width
+    float head_spaceing = .04;  // head_spaceing
+    float tile_Height = -.2;  // tile_Height
+    float head_Height = -.1; // head_Height
+    float slider_thickness = .04;  // slider_thickness
 
     for(int i = 0; i < 6; i++){
+      //all voxels exist
+      ret.voxs[i].exist = 1;
       //all true, unless i is 5 and the block below isnt small (or air)
       ret.voxs[0].faces[i] = !(i == 5 && !smallBlock(adjacent[5]));
+      //all faces exist by default
+      for(unsigned char j = 1; j < num_vox; j++){
+        ret.voxs[j].faces[i] = 1;
+        if(!(j == 2 || j == 3)){
+          ret.voxs[j].D_mod[i] = head_width / 2;
+        }
+      }
+
+      //these have dirrerent dimentions
+      ret.voxs[2].D_mod[i] = (head_width - head_spaceing) / 2;
+      ret.voxs[3].D_mod[i] = (head_width - head_spaceing) / 2;
     }
+
+    //DIMENTIONS
+    //voxel 2 sits ontop of voxel 1
+    ret.voxs[1].D_mod[4] =   tile_Height + slider_thickness;
+    ret.voxs[2].D_mod[5] = -(tile_Height + slider_thickness);
+
+    //voxels 4 and 5 have the same height
+    ret.voxs[4].D_mod[4] = head_Height + head_width;
+    ret.voxs[5].D_mod[4] = head_Height + head_width;
+
+    //voxel 1 and 3 sit on voxel 0
+    ret.voxs[0].D_mod[4] =  tile_Height;
+    ret.voxs[1].D_mod[5] = -tile_Height;
+    ret.voxs[3].D_mod[5] = -tile_Height;
+
+    //voxels 4 and 5 both share the same height and sit on the same plane ontop of voxels 2 and 3
+    ret.voxs[2].D_mod[4] =  head_Height;
+    ret.voxs[3].D_mod[4] =  head_Height;
+    ret.voxs[4].D_mod[5] = -head_Height;
+    ret.voxs[5].D_mod[5] = -head_Height;
+
+    //voxel 1 has a width 0f 4 units
+    ret.voxs[1].D_mod[N_D]  =  2*head_width + 2*head_spaceing;
+    ret.voxs[1].D_mod[N_RD] =  2*head_width + 2*head_spaceing;
+
+    //math... these have to do with setting the depth of each voxel for tick length and direction of repeater
+    ret.voxs[2].D_mod[N_D]  = -head_width*t - head_spaceing*t + 2*head_width +   head_spaceing;
+    ret.voxs[2].D_mod[N_RD] =  head_width*t + head_spaceing*t -   head_width - 2*head_spaceing;
+
+    ret.voxs[3].D_mod[N_D]  =  3*head_width + 2*head_spaceing;
+    ret.voxs[3].D_mod[N_RD] = -2*head_width - 3*head_spaceing;
+
+    ret.voxs[5].D_mod[N_D]  =  3*head_width + 5*head_spaceing/2;
+    ret.voxs[5].D_mod[N_RD] = -2*head_width - 5*head_spaceing/2;
+
+    ret.voxs[4].D_mod[N_D]  = -head_width*t - head_spaceing*t + 2*head_width + 2*head_spaceing - head_spaceing/2;
+    ret.voxs[4].D_mod[N_RD] =  head_width*t + head_spaceing*t -   head_width -   head_spaceing - head_spaceing/2;
+
+
+    //removing unnesisary faces (tops and bottoms of torch handle and bottom of slider)
+    //FACES
+    ret.voxs[1].faces[5] = 0;
+    ret.voxs[2].faces[4] = 0;
+    ret.voxs[2].faces[5] = 0;
+    ret.voxs[3].faces[4] = 0;
+    ret.voxs[3].faces[5] = 0;
   }
 
   else if(type == blockLookup("ice")){
@@ -2751,7 +3004,7 @@ void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
 }
 
 void printVirtex(FILE * Obj,struct virtex v){
-  fprintf(Obj,"v %.2f %.2f %.2f\n",v.x,v.z,v.y);
+  fprintf(Obj,"v %.3f %.3f %.3f\n",v.x,v.z,v.y);
 }
 
 void printsubVoxel(FILE * Obj, struct subVoxel vox, int vc, short x, short z, short y){
@@ -2814,7 +3067,6 @@ void buildWaveFront(){
       for(short y = 0; y < mapD; y++){
         if(map[x][z][y].type != 0){
           char type = map[x][z][y].type;
-          char* name = reverseBlockLookup(map[x][z][y].type);
           unsigned char data = map[x][z][y].value;
 
           struct subVoxelPack voxPack;
@@ -2822,13 +3074,13 @@ void buildWaveFront(){
           voxPack = getsubVoxels(x,z,y);
 
           for(int i = 0; i < voxPack.num_vox; i++){
-            if(voxPack.voxs[i].exist){
+            if(voxPack.voxs[i].exist && !mask(type)){
               //these blocks have different materials based on the datavalue
-              fprintf(Obj,"usemtl %s",name);
+              fprintf(Obj,"usemtl ");
               if(type == blockLookup("wool") || type == blockLookup("wood"))
-              fprintf(Obj,":%i:%i\n",data,i);
+              fprintf(Obj,"%s:%i\n",getPartnameForBlock(type,i),data);
               //the rest are just 0
-              else fprintf(Obj,":0:%i\n",i);
+              else fprintf(Obj,"%s:0\n",getPartnameForBlock(type,i));
               vc += 8; //current count of all virtexes
               printsubVoxel(Obj,voxPack.voxs[i],vc,x,z,y);
             }
@@ -2837,6 +3089,7 @@ void buildWaveFront(){
         }
       }
     }
+    showProgress(x,mapW,"printing waveFront object");
   }
   fclose(Obj); //close file pointer
 }
@@ -2858,95 +3111,6 @@ struct buss bussStraight(struct buss arg, short distance){
   return arg;
 }
 
-void tower2(unsigned char value,unsigned char levels){
-
-  //pack B
-  struct block B;
-  B.type = blockLookup("wool");
-  B.value = value;
-  B.relDir = '\0';
-
-  comment("tower2");
-  setBlock(B,1);
-  shift(1,'u');
-  setredTorch('u');
-  expand(1,'d');
-  stack(levels,'u',"s");
-  replace("redstone_torch",0,0,"redstone",1,0);
-  contract(1,'d');
-  comment("endtower2");
-}
-
-struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool flip){
-  comment("bussUp");
-
-  if(flip){
-    arg.loc.direction = oppDir(arg.loc.direction);
-  }
-
-  char Dir = arg.loc.direction;
-
-
-  unsigned char width = arg.width;
-  for(unsigned char i = 0; i < width; i++){
-
-    //pack B
-    struct block B;
-    B.type = blockLookup("wool");
-    B.value = arg.collors[i+1];
-    B.relDir = '\0';
-
-    if(type){
-      if(i == 0){
-        tower(distance,up,arg.collors[0]);
-
-        flipFlop(Dir);
-
-        expand(distance - 2,oppDir(up));
-        expand(1,oppDir(arg.loc.stSide));
-
-        if(up == 'd'){
-          shift(3,oppDir(Dir));
-          shift(2,'u');
-          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
-        }
-        else{
-          expand(2,'d');
-          shift(3,oppDir(Dir));
-          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
-          contract(2,'u');
-        }
-
-        shift(1,up);
-        contract(distance - 2,up);
-        expand(2,Dir);
-        stack(arg.width - 1,oppDir(arg.loc.stSide),"");
-        contract(2,oppDir(Dir));
-        contract(1,arg.loc.stSide);
-      }
-      if(i != width - 1){
-        shift(2,oppDir(arg.loc.stSide));
-        setBlock(B,1);
-      }
-      else{
-        shift(1,'d');
-        shift(3,Dir);
-      }
-      arg.strength[i] = 14;
-    }
-    else{
-      tower2(arg.collors[i],distance / 2);
-      if(i != width - 1){
-        shift(distance,oppDir(up));
-        shift(2,oppDir(arg.loc.stSide));
-      }
-    }
-  }
-  shift((width - 1) * 2,arg.loc.stSide);
-  comment("endbussUp");
-  return arg;
-}
-
 struct buss bussStairs(struct buss arg, short distance, char up){
   comment("bussStairs");
   char Dir = arg.loc.direction;
@@ -2963,8 +3127,6 @@ struct buss bussStairs(struct buss arg, short distance, char up){
   comment("endbussStairs");
   return arg;
 }
-
-
 
 struct buss createTestBuss(char* name,unsigned char width,char direction, char stSide){
   struct buss ret;
@@ -2988,6 +3150,7 @@ void freeBlockMap(){
       free(map[i][j]);
     }
     free(map[i]);
+    showProgress(i,mapW,"freeing block map");
   }
   free(map);
   printf("free(bMap.map);\n");
@@ -3001,18 +3164,16 @@ void bitXOR1(char Dir){
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
-  B1.relDir = '\0';
 
   //pack B2
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 4;
-  B2.relDir = '\0';
 
   comment("bitXOR1");
   setBlock(B1,1);
   shift(1,'u');
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(2,'d');
   shift(1,Dir);
   setBlock(B2,1);
@@ -3051,13 +3212,11 @@ void bitXOR2(char Dir){
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
-  B1.relDir = '\0';
 
   //pack B2
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 4;
-  B2.relDir = '\0';
 
   comment("bitXOR2");
   shift(1,Dir);
@@ -3087,33 +3246,33 @@ void bitXOR2(char Dir){
   setredTorch(oppDir(Dir));
   shift(1,'u');
   shift(1,Dir);
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(2,'d');
   setredTorch(Dir);
   shift(2,'d');
   setredTorch(Dir);
   shift(1,'u');
   shift(1,Dir);
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(2,'u');
-  setRepeater(oppDir(Dir));
+  setRepeater(oppDir(Dir),0);
   shift(1,'u');
   shift(1,Dir);
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(2,'d');
   setredTorch('u');
   shift(1,'u');
   shift(1,Dir);
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(2,'d');
-  setRepeater(oppDir(Dir));
+  setRepeater(oppDir(Dir),0);
   shift(1,'u');
   shift(1,Dir);
   setredTorch(oppDir(Dir));
   shift(2,'d');
   setredTorch(oppDir(Dir));
   shift(4,'u');
-  setRepeater(Dir);
+  setRepeater(Dir,0);
   shift(1,Dir);
   comment("endbitXOR2");
 }
@@ -3319,7 +3478,7 @@ struct buss halfSwapSides(struct buss inBuss,short amount,char Dir){
     }
     else{
       subBuss = bussFlipFlop(subBuss);
-      printBussInfo(subBuss,"afterFlip");
+      // printBussInfo(subBuss,"afterFlip");
       shift(1,subBuss.loc.direction);
       subBuss = bussStraight(subBuss,1);
     }
@@ -3387,9 +3546,8 @@ struct buss* bussTap(struct buss arg,char direction){
 
   //pack B
   struct block B;
-  B.type = blockLookup("redstone_lamp");
+  B.type = blockLookup("redstone_Lamp");
   B.value = 0;
-  B.relDir = '\0';
 
   comment("bussTap");
 
@@ -3420,7 +3578,7 @@ struct buss* bussTap(struct buss arg,char direction){
     if(arg.loc.stSide == newDir){
       arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],longDist,oldDir);
       shift(1,'u');
-      setRepeater(oldDir);
+      setRepeater(oldDir,0);
       shift(1,oldDir);
       setBlock(B,1);
       shift(1,'d');
@@ -3444,7 +3602,7 @@ struct buss* bussTap(struct buss arg,char direction){
     else{
       arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],shortDist,oldDir);
       shift(1,'u');
-      setRepeater(oldDir);
+      setRepeater(oldDir,0);
       shift(1,oldDir);
       setBlock(B,1);
       shift(1,'d');
@@ -3487,24 +3645,35 @@ struct buss* buildRoundKeyBuss(struct buss roundKey){
   struct buss* DESKeys = bussTap(roundKey,'l');
   DESKeys[0].name = "encrypt";
   DESKeys[1].name = "decrypt";
-  printBussInfo(DESKeys[1],"beforeBussDown");
+
+  // printBussInfo(DESKeys[1],"beforeBussDown");
+
+  unsigned char numKeys = 16;
+
   shift(4,'d');
-  for(int i = 1; i < 16; i++){
+  for(int i = 1; i < numKeys; i++){
+    printf("1 key# %i \n",i);
     bussTap(roundKey,'l');
-    if(i != 15)
+    if(i != numKeys - 1)
     shift(4,'d');
   }
   shift(roundKey.width * 2,oppDir(roundKey.loc.stSide));
   shift(2,'d');
   shift(1,roundKey.loc.direction);
 
-  for(int i = 0; i < 16; i++){
+  for(int i = 0; i < numKeys; i++){
+    printf("2 key# %i \n",i);
     bussStraight(DESKeys[1],(i * 2) + 4);
     struct buss outKey = bussUp(1,DESKeys[1],(i * 8) + spaceBetween,'d',1);
     shift(1,outKey.loc.direction);
     bussStraight(outKey,(i * 2));
+
+    turnBuss(outKey,'l',0,0);
+    shift(outKey.width * 2 - 2,outKey.loc.stSide);
+    shift(outKey.width * 2 - 2,oppDir(outKey.loc.direction));
+
     shift(3,outKey.loc.direction);
-    if(i != 15){
+    if(i != numKeys - 1){
       shift(3,DESKeys[1].loc.direction);
       shift((i * 8) + spaceBetween + 4,'u');
     }
@@ -3526,7 +3695,29 @@ int main(){
   // struct buss Test = createTestBuss("TEST_1",48,'r','b');
   // struct buss* block = allocateBlock();
 
-  buildOutput(16,'l','b');
+  // for(int i = 0; i < 10; i++){
+  //   for(int j = 0; j < 10; j++){
+  //     for(int k = 0; k < 10; k++){
+  //       show3dProgress(i,j,k,10,10,10);
+  //     }
+  //   }
+  // }
+  // printf("\n");
+
+
+  // buildOutput(8,'l','b');
+
+  // for(int i = 0; i < 4; i++){
+  //   setRepeater('f',i);
+  //   shift(2,'l');
+  //   setRepeater('b',i);
+  //   shift(2,'l');
+  //   setRepeater('l',i);
+  //   shift(2,'l');
+  //   setRepeater('r',i);
+  //   shift(2,'f');
+  //   shift(6,'r');
+  // }
 
   // buildStables(Test,'r','b');
 
@@ -3541,19 +3732,21 @@ int main(){
 
   // buildRound(Test,block);
 
+  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
   // buildRoundKeyBuss(Test);
 
   // bussTap(Test,'l');
 
-  // setKeySchedual();
+  setKeySchedual();
 
   // Test = turnBuss(Test,'l',1,2,'u');
 
   buildMaterialLibrary();
   buildWaveFront();
   buildImmages();
-  printFileBuffer(script);
+  // printFileBuffer(script);
 
+  free(script);
   //end portion of main (freeing and closing pointers)
   freeBlockMap();
 
