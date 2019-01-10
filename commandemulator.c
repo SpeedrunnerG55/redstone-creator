@@ -84,7 +84,7 @@ unsigned char blockLookup(char* type){
 }
 
 _Bool mask(unsigned char type){
-  // if(type == blockLookup("wool")) return 1;
+  if(type == blockLookup("wool")) return 0;
   return 0;
 }
 
@@ -348,7 +348,7 @@ void showProgress(short ARG,short MAX_ARG, char* message){
   printf("%-35s",message);
 
   //show current progress
-  printf(" %.2f %%",Progress * 100); showFloat(Progress);
+  printf(" %3.2f %%",Progress * 100); showFloat(Progress);
 
   //new line when finished so i dont need to impliment a seperate new line in the code seperatly
   if(Progress == 1) printf("\n");
@@ -2144,8 +2144,15 @@ void printBussInfo(struct buss arg,char* state){
   printf("\n");
 }
 
+struct buss buildPermute
+(
+  char* name,struct buss inBuss, /*buss info 1-2*/
+  unsigned char rows, unsigned char cols,unsigned char permTable[rows][cols], /*permTable info 3-5*/
+  unsigned char groupSize, unsigned char groupSpacing,/*group info 6-7*/
+  char forward, char stSide, char inSide,/*direction info 8-10*/
+  _Bool startAtIn, _Bool stayAtOut /*movment info 11-12*/
+){
 
-struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[], unsigned char permLength, unsigned char groupSize, unsigned char groupSpacing, char forward, char stSide, char inSide,_Bool startAtIn, _Bool stayAtOut){
   comment("buildPermute");
   if(startAtIn){
     if(stSide == inSide){
@@ -2155,64 +2162,67 @@ struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[
     }
     else{
       shift(2,'u');
-      shift(permLength * 2,oppDir(inSide));
+      shift((rows * cols) * 2,oppDir(inSide));
       shift(2,oppDir(forward));
     }
   }
 
   struct buss outBuss;
-  outBuss.width = permLength;
-  outBuss.collors = malloc(permLength);
-  outBuss.strength = malloc(permLength);
+  outBuss.width = rows * cols;
+  outBuss.collors = malloc(rows * cols);
+  outBuss.strength = malloc(rows * cols);
   outBuss.name = name;
   outBuss.loc.direction = oppDir(forward);
   outBuss.loc.stSide = stSide;
 
-  for(short i = 0; i < permLength; i++){
-    unsigned char group = (permTable[i] - 1) / groupSize;
-    unsigned char extLength = group * groupSpacing;
-    unsigned char outLength = (permTable[i] * 2) + extLength;
-    short inLength;
+  for(short row = 0; row < rows; row++){
+    for(short col = 0; col < cols; col++){
+      unsigned char index = row * cols + col;
+      unsigned char group = (permTable[row][col] - 1) / groupSize;
+      unsigned char extLength = group * groupSpacing;
+      unsigned char outLength = (permTable[row][col] * 2) + extLength;
+      short inLength;
 
-    //wool collor for theis line
-    char dataValueIn = inBuss.collors[permTable[i] - 1];
-    unsigned char inStreangth = inBuss.strength[permTable[i] - 1];
+      //wool collor for theis line
+      char dataValueIn = inBuss.collors[permTable[row][col] - 1];
+      unsigned char inStreangth = inBuss.strength[permTable[row][col] - 1];
 
-    unsigned char dataValueOut = i % 16;
-    outBuss.collors[i] = dataValueOut;
+      unsigned char dataValueOut = index % 16;
+      outBuss.collors[index] = dataValueOut;
 
-    //go to end
-    shift(outLength,forward);
-    //go down to bottom
-    shift(2,'d');
+      //go to end
+      shift(outLength,forward);
+      //go down to bottom
+      shift(2,'d');
 
-    //determin input length based on side
-    if(stSide == inSide)
-    inLength = (i + 1) * 2;
-    else
-    inLength = ((permLength - i)*2);
+      //determin input length based on side
+      if(stSide == inSide)
+      inLength = (index + 1) * 2;
+      else
+      inLength = ((rows * cols - index)*2);
 
-    //shift to input
-    shift(inLength,inSide);
+      //shift to input
+      shift(inLength,inSide);
 
-    //wire to input
-    inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
+      //wire to input
+      inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
 
-    //where the busses meet
-    stairs("redstone_Lamp",0,oppDir(forward),'u',2);
+      //where the busses meet
+      stairs("redstone_Lamp",0,oppDir(forward),'u',2);
 
-    //wire to output
-    inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
+      //wire to output
+      inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
 
-    //output reached record its strength
-    outBuss.strength[i] = inStreangth;
+      //output reached record its strength
+      outBuss.strength[index] = inStreangth;
 
-    //dont shift at the end
-    if(i != permLength -1){
-      shift(2,oppDir(stSide));
+      //dont shift at the end
+      if(index != rows * cols -1){
+        shift(2,oppDir(stSide));
+      }
     }
   }
-  shift((permLength -1) * 2,stSide);
+  shift((rows * cols -1) * 2,stSide);
 
   if(!stayAtOut){
     if(stSide == inSide){
@@ -2222,7 +2232,7 @@ struct buss buildPermute(char* name,struct buss inBuss, unsigned char permTable[
     }
     else{
       shift(2,'d');
-      shift(permLength * 2,inSide);
+      shift(rows * cols * 2,inSide);
       shift(2,forward);
     }
   }
@@ -2269,59 +2279,6 @@ void tower2(unsigned char value,unsigned char levels){
   comment("endtower2");
 }
 
-void shiftBit(unsigned char value, char shiftDir, char outSide, unsigned char shift_amt){
-  comment("shiftBit");
-
-  //pack B
-  struct block B;
-  B.type = blockLookup("wool");
-  B.value = value;
-
-  if(shift_amt == 1){
-    tower2(value,1);
-  }
-  for(unsigned char i = 0; i < 2 * shift_amt; i++){
-    if((i !=  (3 * shift_amt) - 1)){
-      shift(1,shiftDir);
-      setredTorch(shiftDir);
-      shift(1,'u');
-      setBlock(B,1);
-    }
-  }
-  breakout(value,outSide);
-  comment("endshiftBit");
-}
-
-void cycleBit(unsigned char value,char shiftDir, char inSide, char outSide, unsigned char shift_amt, unsigned char shiftLength, unsigned char bitIndex){
-
-  char* type = "wool";
-
-  //pack B
-  struct block B;
-  B.type = blockLookup("wool");
-  B.value = value;
-
-  comment("cycleBit");
-  setBlock(B,1);
-  shift(1,'d');
-  unsigned char strength = 13;
-  shift(1,oppDir(inSide));
-  stairs(type,value,oppDir(inSide),'u',1);
-  strength--;
-  strength = wire(strength,4,value,(bitIndex * 2),oppDir(inSide));
-  stairs(type,value,oppDir(shiftDir),'u',2);
-  strength -= 2;
-  strength = wire(strength,2,value,(shiftLength * 2) - (3 + (shift_amt * 2) - 1),oppDir(shiftDir));
-  strength = wire(strength,5,value,(bitIndex * 2),outSide);
-  stairs(type,value,inSide,'u',1);
-  strength--;
-  shift(1,'u');
-  shift(1,outSide);
-  setBlock(B,1);
-  breakout(value,outSide);
-  comment("endcycleBit");
-}
-
 void invertor(char value, char dir){
   struct block B;
   B.value = value;
@@ -2331,86 +2288,6 @@ void invertor(char value, char dir){
   setBlock(B,1);
   shift(1,dir);
   setredTorch(dir);
-}
-
-struct buss keyShiftSide(struct buss key,_Bool half,unsigned char shiftIndex){
-  comment("keyShiftSide");
-
-  char Stside = key.loc.stSide;
-  char outSide = oppDir(key.loc.direction);
-  char inSide = outSide;
-
-  unsigned char shiftLength = PC1Length / 2;
-  unsigned char shift_amt = keyshifts[shiftIndex]; //(1 or 2) but could be annything
-
-  unsigned char offset;
-  if(half){
-    offset = shiftLength;
-  }
-  else{
-    offset = 0;
-  }
-
-  //hack to fix a coupple of inverted bits pls somone make this better
-  if(shiftIndex == 0){
-    shift(2,oppDir(key.loc.direction));
-    invertor(key.collors[offset],key.loc.direction);
-    shift(2,oppDir(key.loc.stSide));
-    invertor(key.collors[offset + 1],key.loc.direction);
-    shift(2,key.loc.stSide);
-    shift(2,key.loc.direction);
-    key.strength[offset] = 15;
-    key.strength[offset + 1] = 15;
-  }
-
-  struct buss temp;
-  temp.collors = malloc(shift_amt);
-  temp.strength = malloc(shift_amt);
-  temp.name = "temp_shift_Buss";
-
-  for(unsigned char i = 0; i < shiftLength; i++){
-    if(i < shift_amt){
-      cycleBit(key.collors[i + offset],Stside,inSide,outSide,shift_amt,shiftLength,i); //cycle bit to other side
-      shift((shiftLength * 2) - (shift_amt * 2) - 2, Stside); //move selection back to this side
-      short index = i + offset + shiftLength - shift_amt;
-      temp.collors[i] = key.collors[index]; //save collor into temp for when i need it later (swap)
-      key.collors[index] = key.collors[i + offset]; //get collor from other side
-      key.strength[index] = 15;
-    }
-    else{
-      short index = i + offset - shift_amt;
-      if((i >= shiftLength - shift_amt)){ //get the collor from the the temp buss because this is actually a swap
-        shiftBit(temp.collors[(i + shift_amt) - shiftLength],Stside,outSide,shift_amt); //shift over by amount
-        shift((shift_amt * 2) + 2, oppDir(Stside));
-        key.collors[index] = temp.collors[(i + shift_amt) - shiftLength];
-        key.strength[index] = 15;
-      }
-      else{ //get the collor to the left
-        shiftBit(key.collors[i + offset],Stside,outSide,shift_amt); //shift over by amount
-        shift((shift_amt * 2) + 2, oppDir(Stside));
-        key.collors[index] = key.collors[i + offset];
-        key.strength[index] = 15;
-      }
-    }
-  }
-
-  //get back to start at end of second shift
-  if(half)
-  shift((PC1Length) * 2,Stside);
-
-  freeBuss(temp);
-
-  comment("endkeyShiftSide");
-  return key;
-}
-
-struct buss Keyshift(struct buss key,unsigned char shiftIndex){
-  comment("Keyshift");
-  key = keyShiftSide(key,0,shiftIndex);
-  key = keyShiftSide(key,1,shiftIndex);
-  shift(4,'u');
-  comment("endKeyshift");
-  return key;
 }
 
 struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool flip){
@@ -2483,7 +2360,42 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
   return arg;
 }
 
-struct buss setKeySchedual(){
+unsigned char **rotateTable(unsigned char rows, unsigned char cols, unsigned char table[rows][cols],unsigned char rotations, unsigned char originaLength){
+
+  unsigned char** ret = malloc(rows * sizeof(unsigned char*));
+
+  for(unsigned char i = 0; i < rows; i++){
+    ret[i] = malloc(cols);
+  }
+
+  for(unsigned char i = 0; i < rows; i++){
+    for(unsigned char j = 0; j < cols; j++){
+      ret[i][j] = table[i][j];
+    }
+  }
+
+  short start[2] = {rows - 1,(rows/2) - 1};
+  short end[2] = {rows / 2,0};
+
+  short outLimmitstart[2] = {(originaLength/2) + 1,1};
+  short outLimmitend[2] = {originaLength + 1,(originaLength/2) + 1};
+
+  for(unsigned char k = 0; k < rotations; k++){
+    for(short side = 0; side < 2; side++){
+      for(short i = start[side]; i >= end[side]; i--){
+        for(short j = cols - 1; j >= 0; j--){
+          ret[i][j]++;
+          if(ret[i][j] >= outLimmitend[side])
+          ret[i][j] = outLimmitstart[side];
+        }
+      }
+    }
+  }
+
+  return ret;
+}
+
+struct buss* setKeySchedual(){
   comment("setKeySchedual");
 
   char PC1stSide = 'r';
@@ -2503,21 +2415,45 @@ struct buss setKeySchedual(){
     key.strength[i] = 10;
   }
 
-  struct buss PC1Results = buildPermute("PC1",key,PC1,PC1Length,1,0,PC1outSide,PC1stSide,PC1inSide,1,1);
+  unsigned char PC1rows = sizeof(PC1) / sizeof(PC1[0]);
+  unsigned char PC1cols = sizeof(PC1[0]) / sizeof(PC1[0][0]);
+  struct buss PC1Results = buildPermute("PC1",key,PC1rows,PC1cols,PC1,1,0,PC1outSide,PC1stSide,PC1inSide,1,1);
 
   shift(1,'u');
 
   size_t num_shifts = sizeof(keyshifts) / sizeof(keyshifts[0]);
   // size_t num_shifts = 4;
 
-  struct buss roundKey;
+  struct buss* roundKey = malloc(16 * sizeof(struct buss));
+
+  unsigned char PC2rows = sizeof(PC2) / sizeof(PC2[0]);
+  unsigned char PC2cols = sizeof(PC2[0]) / sizeof(PC2[0][0]);
+
+  unsigned char rotations = 0;
 
   for(size_t i = 0; i < num_shifts; i++){
-    roundKey = Keyshift(PC1Results,i);
-    if(i != num_shifts - 1)
-    buildPermute("PC2",roundKey,PC2,PC2Length,1,0,PC2outSide,PC2stSide,PC2inSide,1,0);
+
+    rotations += keyshifts[i];
+
+    unsigned char ** heapRotated = rotateTable(PC2rows,PC2cols,PC2,rotations,56);
+    unsigned char rotated[PC2rows][PC2cols];
+    for(unsigned char j = 0; j < PC2rows; j++){
+      for(unsigned char k = 0; k < PC2cols; k++){
+        rotated[j][k] = heapRotated[j][k];
+      }
+      free(heapRotated[j]);
+    }
+    free(heapRotated);
+
+    if(i == 0)
+    PC1Results = bussUp(0,PC1Results,4,'u',1);
     else
-    roundKey = buildPermute("PC2",roundKey,PC2,PC2Length,1,0,PC2outSide,PC2stSide,PC2inSide,1,1); //stay at end at end and only get the buss info at end
+    PC1Results = bussUp(0,PC1Results,4,'u',0);
+
+    if(i != num_shifts - 1)
+    roundKey[i] = buildPermute("PC2",PC1Results,PC2rows,PC2cols,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,0);
+    else
+    roundKey[i] = buildPermute("PC2",PC1Results,PC2rows,PC2cols,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,1); //stay at end at end
   }
   comment("endsetKeySchedual");
   return roundKey;
@@ -2695,10 +2631,10 @@ struct redShape getRedStoneShape(short x, short z, short y){
 
   struct redShape ret;
 
-  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !frstX && solid(map[x+1][z][y].type));
+  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !lastX && solid(map[x+1][z][y].type));
   ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[x-1][z][y].type));
-  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !frstX && solid(map[x][z][y+1].type));
-  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstX && solid(map[x][z][y-1].type));
+  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !lastY && solid(map[x][z][y+1].type));
+  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstY && solid(map[x][z][y-1].type));
 
   ret.extend[4] = LU;
   ret.extend[5] = RU;
@@ -3004,7 +2940,7 @@ void printFaceQuad(FILE * Obj,unsigned char v_index[4], int vc){
 }
 
 void printVirtex(FILE * Obj,struct virtex v){
-  fprintf(Obj,"v %.3f %.3f %.3f\n",v.x,v.z,v.y);
+  fprintf(Obj,"v %.2f %.2f %.2f\n",v.x,v.z,v.y);
 }
 
 void printsubVoxel(FILE * Obj, struct subVoxel vox, int vc, short x, short z, short y){
@@ -3074,7 +3010,7 @@ void buildWaveFront(){
           voxPack = getsubVoxels(x,z,y);
 
           for(int i = 0; i < voxPack.num_vox; i++){
-            if(voxPack.voxs[i].exist && !mask(type)){
+            if(voxPack.voxs[i].exist){
               //these blocks have different materials based on the datavalue
               fprintf(Obj,"usemtl ");
               if(type == blockLookup("wool") || type == blockLookup("wood"))
@@ -3322,6 +3258,11 @@ struct buss XOR(_Bool XORType,struct buss inBitsA, struct buss inBitsB){
 }
 
 struct buss* allocateBlock(){
+
+  unsigned char Prows = sizeof(P) / sizeof(P[0]);
+  unsigned char Pcols = sizeof(P[0]) / sizeof(P[0][0]);
+  unsigned char PLength = Prows * Pcols;
+
   struct buss* Block = malloc(2 * sizeof(struct buss));
   Block[0].name = "left_Block";
   Block[0].loc.direction = 'b';
@@ -3508,13 +3449,18 @@ struct buss* buildRound(struct buss roundKey, struct buss* block){
   bussStraight(roundKey,0);
   shift(5,'u');
   shift(8,roundDir);
+  unsigned char Prows = sizeof(P) / sizeof(P[0]);
+  unsigned char Pcols = sizeof(P[0]) / sizeof(P[0][0]);
+  unsigned char PLength = Prows * Pcols;
   bussStraight(roundKey,(PLength * 2) + 1);
   struct buss sBoxResults = buildStables(roundKey,roundDir,roundStSide);
-  struct buss PResults = buildPermute("P_Results",sBoxResults,P,PLength,4,4,'f',oppDir(roundDir),roundDir,1,1);
+  struct buss PResults = buildPermute("P_Results",sBoxResults,Prows,Pcols,P,4,4,'f',oppDir(roundDir),roundDir,1,1);
   shift(6,'d');
   shift(1,'b');
   shift(((PLength * 2)),roundDir);
-  struct buss EResults = buildPermute("E_Results",block[1],E,ELength,1,0,roundDir,'b','b',1,1);
+  unsigned char Erows = sizeof(E) / sizeof(E[0]);
+  unsigned char Ecols = sizeof(E[0]) / sizeof(E[0][0]);
+  struct buss EResults = buildPermute("E_Results",block[1],Erows,Ecols,E,1,0,roundDir,'b','b',1,1);
   bussStraight(EResults,(PLength * 2) - 1);
   shift(1,'u');
   shift(8,oppDir(roundDir));
