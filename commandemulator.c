@@ -74,7 +74,7 @@ unsigned char blockLookup(char* type){
 
   size_t numElements = sizeof(blockTable) / sizeof(blockTable[0]);
   for(size_t i = 0; i < numElements; i++){
-    if(!strncmp(type,blockTable[i][0],strlen(blockTable[i][0])) && strlen(type) == strlen(blockTable[i][0])){
+    if(strlen(type) == strlen(blockTable[i][0]) && !strncmp(type,blockTable[i][0],strlen(blockTable[i][0]))){
       return i;
     }
   }
@@ -147,7 +147,7 @@ char *partTable[] ={
 unsigned char PartLookup(char* partName){
   size_t numParts = sizeof(partTable) / sizeof(partTable[0]);
   for(size_t part = 0; part < numParts; part++){
-    if(!strncmp(partName,partTable[part],strlen(partTable[part])) && strlen(partName) == strlen(partTable[part])){
+    if(strlen(partName) == strlen(partTable[part]) && !strncmp(partName,partTable[part],strlen(partTable[part]))){
       return part;
     }
   }
@@ -326,11 +326,11 @@ _Bool inSel(short x,short z,short y){
   return (x <= sel.l && x >= sel.r && z <= sel.u && z >= sel.d && y <= sel.f && y >= sel.b);
 }
 
-void showFloat(float progress){
+void showFloat(float arg){
+  unsigned char barLength = 20;
   printf("[");
-  for(short i = 0; i < progress * 10; i++) printf("#");
-  // printf(">");
-  for(short i = progress * 10; i < 10; i++) printf(" ");
+  for(short i = 0; i < arg * barLength; i++) printf("#");
+  for(short i = arg * barLength; i < barLength; i++) printf(" ");
   printf("]");
 }
 
@@ -345,10 +345,10 @@ void showProgress(short ARG,short MAX_ARG, char* message){
   printf("\r");
 
   //print message of what the process is
-  printf("%-35s",message);
+  printf("%-30s",message);
 
   //show current progress
-  printf(" %3.2f %%",Progress * 100); showFloat(Progress);
+  printf("%5i/%-5i %3.2f %%",ARG + 1,MAX_ARG,Progress * 100); showFloat(Progress);
 
   //new line when finished so i dont need to impliment a seperate new line in the code seperatly
   if(Progress == 1) printf("\n");
@@ -661,6 +661,7 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
       for(short k = selExt.b; k <= selExt.f; k++){
         if(blockLookup(typeA) == map[i][j][k].type){
           struct block B;
+          B.relDir = '\0';
           B.type = blockLookup(typeB);
           if(specificB)
           B.value = valueB;
@@ -720,6 +721,7 @@ void overlay(char* type, unsigned char value){
         struct block B;
         B.type = blockLookup(type);
         B.value = value;
+        B.relDir = '\0';
 
         //only fill in air and the block under it is not air
         if(map[i][j][k].type != 0){
@@ -770,7 +772,7 @@ struct block*** copySel(){
         //remove old block
         map[i][j][k].type = 0;
         map[i][j][k].value = 0;
-        map[i][j][k].relDir = 0;
+        map[i][j][k].relDir = '\0';
       }
     }
   }
@@ -851,11 +853,13 @@ void stack(short amount,char Dir, char* options){
     toScript(command);
 
     _Bool preserveAir = 0;
+    _Bool sel_shift = 0;
 
     for(unsigned int i = 0; i < strlen(options); i++){
       snprintf(command,commandBuffer," -%c",options[i]);
       toScript(command);
       preserveAir |= options[i] == 'a';
+      sel_shift |= options[i] == 's';
     }
     toScript(");\n");
 
@@ -915,11 +919,9 @@ void stack(short amount,char Dir, char* options){
     }
 
     //shift after block operation
-    for(unsigned int i = 0; i < strlen(options); i++){
-      if(options[i] == 's'){
-        //looks framilliar? it should its the smol switch again, whre moving the selection
-        selectionShift(Dir,shift);
-      }
+    if(sel_shift){
+      //looks framilliar? it should its the smol switch again, whre moving the selection
+      selectionShift(Dir,shift);
     }
   }
 }
@@ -1010,7 +1012,6 @@ void contract(unsigned short amount,char Dir){
 
 void setRepeater(char Dir,unsigned char m){
   comment("placing repeater based on direction");
-  char* type = "redstone_repeater";
   unsigned char offset = 0;
   switch (Dir) {
     case 'f': offset = 0; break;
@@ -1027,7 +1028,7 @@ void setRepeater(char Dir,unsigned char m){
 
   //pack B
   struct block B;
-  B.type = blockLookup(type);
+  B.type = blockLookup("redstone_repeater");
   B.relDir = Dir;
 
   //place block depenting on dirrection and offset on actual Dir
@@ -1047,11 +1048,10 @@ void setRepeater(char Dir,unsigned char m){
 void setredTorch(char Dir){
   if(Dir != 'u')
   comment("placing torch based on direction");
-  char* type = "redstone_torch";
 
   //pack B
   struct block B;
-  B.type = blockLookup(type);
+  B.type = blockLookup("redstone_torch");
   B.relDir = Dir;
 
   //even bigger switch
@@ -1110,11 +1110,10 @@ void setredTorch(char Dir){
 void setObservor(char Dir){
   if(Dir != 'u' && Dir != 'd')
   comment("placing observor based on direction");
-  char* type = "observor";
 
   //pack B
   struct block B;
-  B.type = blockLookup(type);
+  B.type = blockLookup("observor");
   B.relDir = Dir;
 
   //even bigger switch mk 2
@@ -1251,6 +1250,7 @@ unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, 
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
+  B.relDir = '\0';
 
   comment("wire");
   //current position of end of selection
@@ -1371,7 +1371,7 @@ void line(char* type, unsigned char value){
         c.z = j;
         c.y = k;
 
-        //get the distance from a to c and from c to b
+        //get the vector from a to c and from c to b
         struct vector aToc = getPointVector(a,c);
         struct vector cTob = getPointVector(b,c);
 
@@ -1380,6 +1380,7 @@ void line(char* type, unsigned char value){
           struct block B;
           B.type = blockLookup(type);
           B.value = value;
+          B.relDir = '\0';
 
           //place block at point c
           map[i][j][k] = B;
@@ -1424,6 +1425,7 @@ void delete(){
         // printf("%i %i %i > %i %i\n",blockX,blockY,blockZ,B.type,B.value);
         map[i][j][k].type = 0;
         map[i][j][k].value = 0;
+        map[i][j][k].relDir = '\0';
       }
     }
   }
@@ -1432,16 +1434,21 @@ void delete(){
 
 void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, unsigned char box){
 
+  comment("buildDecoderTop");
+
   //pack B
   struct block bottom;
   bottom.type = blockLookup("wood");
   bottom.value = 2;
+  bottom.relDir = '\0';
 
   struct block top;
   top.type = blockLookup("wood");
   top.value = 3;
+  top.relDir = '\0';
 
-  comment("buildDecoderTop");
+  char opp_stSide = oppDir(stSide);
+
   unsigned short entries = pow(2,inBits);
   //build top structure
   //single bit
@@ -1456,20 +1463,20 @@ void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, un
   setPiston('d',1);
   expand(2,oppDir(Dir));
   expand(1,'u');
-  expand(1,oppDir(stSide));
+  expand(1,opp_stSide);
   //stack it to the other 5 places
-  stack(inBits - 1,oppDir(stSide),"");
+  stack(inBits - 1,opp_stSide,"");
 
   //change the wool collors to make it look better
   shift(2,oppDir(stSide));
   replace("wood",1,2,"wood",1,0); //bottom
   replace("wood",1,3,"wood",1,1); //top
   //do the 3 other middle bits all at once
-  stack(inBits - 3,oppDir(stSide),""); // -2 for not the first and last bit and an additional -1 becuase its the 3 middle bits
+  stack(inBits - 3,opp_stSide,""); // -2 for not the first and last bit and an additional -1 becuase its the 3 middle bits
   shift(2,stSide);
 
   //expand selection to stack to rest of entries
-  expand(((inBits - 1) * 2) - 1,oppDir(stSide));
+  expand(((inBits - 1) * 2) - 1,opp_stSide);
   //stack it to the rest of the entries
   stack(entries - 1,Dir,"");
 
@@ -1497,12 +1504,16 @@ void buildDecoderTop(short inBits, char Dir, char stSide, unsigned char rows, un
 
 void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSide){
 
+  comment("fillBinPtrn");
+
   //pack B
   struct block B;
   B.type = blockLookup("redstone_Block");
   B.value = 0;
+  B.relDir = '\0';
 
-  comment("fillBinPtrn");
+  char opp_Dir = oppDir(Dir);
+
   //number of entries
   unsigned short entries = pow(2,inBits);
 
@@ -1515,18 +1526,18 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
     if(significance[iB] > 1){
       expand(2,Dir);
       stack(significance[iB]-1,Dir,"");
-      contract(2,oppDir(Dir));
+      contract(2,opp_Dir);
     }
     //top side (normal bits)
     shift(1,'u');
     shift(significance[iB] * 3,Dir);
     setBlock(B,1);
     if(significance[iB] > 1){
-      expand(2,oppDir(Dir));
+      expand(2,opp_Dir);
       stack(significance[iB]-1,Dir,"");
       contract(2,Dir);
     }
-    shift(significance[iB] * 3,oppDir(Dir));
+    shift(significance[iB] * 3,opp_Dir);
 
     //stack to rest of entries
     if(entries / significance[iB] > 2){
@@ -1534,7 +1545,7 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
       expand(1,'d');
       expand(6*significance[iB]-1,Dir);
       stack((entries / (significance[iB] * 2)-1),Dir,"a");
-      contract(6*significance[iB]-1,oppDir(Dir));
+      contract(6*significance[iB]-1,opp_Dir);
       contract(1,'u');
     }
     //go to next bit
@@ -1546,7 +1557,7 @@ void fillBinPtrn(short inBits, unsigned char significance[], char Dir, char stSi
   //return from pattern
   shift(((inBits - 1) * 2),stSide);
   shift(1,'u');
-  shift(2,oppDir(Dir));
+  shift(2,opp_Dir);
   comment("endfillBinPtrn");
 }
 
@@ -1565,13 +1576,12 @@ void tower(unsigned char amount,char up, unsigned char value){
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
+  B.relDir = '\0';
 
   comment("tower");
   amount--;
   if(amount > 0){
     if(up == 'u'){
-      setBlock(B,1);
-      overlay("redstone",0);
       shift(2,'u');
       setObservor(up);
       if(amount > 1){
@@ -1598,6 +1608,7 @@ void flipFlop(char Dir){
   struct block B;
   B.type = blockLookup("redstone_Block");
   B.value = 0;
+  B.relDir = '\0';
 
   comment("FlipFlop");
   shift(1,'u');
@@ -1610,7 +1621,7 @@ void flipFlop(char Dir){
   comment("endFlipFlop");
 }
 
-void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide, char stSide){
+unsigned char buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide, char stSide){
   comment("buildOutLines");
 
   char num_levels;
@@ -1631,11 +1642,13 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
+  B1.relDir = '\0';
 
   //pack B
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 7;
+  B2.relDir = '\0';
 
   //create 1 1x15 wire section
   setBlock(B1,1); //a little touch to make it look a little better
@@ -1695,6 +1708,15 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   stack(wireStacks-1,oppDir(inSide),""); //then stack to the rest 1() - with the strange shift
   shift(trimAmt,inSide);
 
+  unsigned char outStrength;
+
+  if(inSide == outSide){
+    outStrength = 15;
+  }
+  else{
+    outStrength = trimAmt;
+  }
+
   //negate expantion for wire extension and bring selection to 1x1x1
   contract(((inBits - 1) * 2), stSide);
   contract((num_levels * 4) - 1,'u');
@@ -1705,6 +1727,8 @@ void buildOutLines(unsigned char outBits, short inBits,char inSide, char outSide
   shift(1,'u');
   shift(1,stSide);
   comment("endbuildOutLines");
+
+  return outStrength;
 }
 
 void buildandSupport(short inBits, unsigned char outBits, short inSide, char stSide){
@@ -1718,32 +1742,36 @@ void buildandSupport(short inBits, unsigned char outBits, short inSide, char stS
   struct block B;
   B.type = blockLookup("wool");
   B.value = 4;
+  B.relDir = '\0';
+
+  char opp_inSide = oppDir(inSide);
+  char opp_stSide = oppDir(stSide);
 
   setBlock(B,1);
   overlay("redstone",0);
   expand(1,'u'); //include redstone
-  expand(2,oppDir(inSide)); //make selection 3 blocks wide
-  stack(entries-1,oppDir(inSide),""); //stack to rest of entries
-  expand((entries-1) * 3,oppDir(inSide)); //expand selection to rest of entries
+  expand(2,opp_inSide); //make selection 3 blocks wide
+  stack(entries-1,opp_inSide,""); //stack to rest of entries
+  expand((entries-1) * 3,opp_inSide); //expand selection to rest of entries
 
   if(num_levels > 1){
     expand(2,'d');
     stack(num_levels - 1,'d',"");
     expand((num_levels - 1) * 4,'d');
     //stack into structure with a option to not overwrite blocks
-    stack((inBits * 2) - 1,oppDir(stSide),"a");
+    stack((inBits * 2) - 1,opp_stSide,"a");
     delete(); //remove start blocks
     contract(((num_levels - 1) * 4) + 2,'u');
   }
   else{
-    stack((inBits * 2) - 1,oppDir(stSide),"a");
+    stack((inBits * 2) - 1,opp_stSide,"a");
     delete(); //remove start blocks
   }
 
   //collaps and shift selection for encoding
   contract(((entries-1) * 3) + 2,inSide);
   contract(1,'d');
-  shift(1,oppDir(stSide));
+  shift(1,opp_stSide);
   comment("endbuildandSupport");
 }
 
@@ -1791,6 +1819,7 @@ void lvlDown(char stSide){
   struct block B;
   B.type = blockLookup("wool");
   B.value = 4;
+  B.relDir = '\0';
 
   comment("lvlDown");
   shift(1,stSide);
@@ -1804,7 +1833,7 @@ void lvlDown(char stSide){
   comment("endlvlDown");
 }
 
-void buildEncoder(unsigned char rows, unsigned char collumns,unsigned char Table[rows][collumns],short inBits, unsigned char outBits, char stSide,char inSide, char outSide){
+unsigned char buildEncoder(unsigned char rows, unsigned char collumns,unsigned char Table[rows][collumns],short inBits, unsigned char outBits, char stSide,char inSide, char outSide){
   comment("buildEncoder");
 
   //how manny num_levels of outputs will i need?
@@ -1817,8 +1846,10 @@ void buildEncoder(unsigned char rows, unsigned char collumns,unsigned char Table
   shift(4,'d');
   shift(1,oppDir(stSide));
 
+  unsigned char outstrength;
+
   //nothing mutch to see here just some scripted actions to build support structures
-  buildOutLines(outBits,inBits,inSide,outSide,stSide);
+  outstrength = buildOutLines(outBits,inBits,inSide,outSide,stSide);
   buildandSupport(inBits,outBits,inSide,stSide);
 
   //start encoding...
@@ -1871,6 +1902,8 @@ void buildEncoder(unsigned char rows, unsigned char collumns,unsigned char Table
   shift((entries * 3) + 3,inSide);
   shift(2,'u');
   comment("endbuildEncoder");
+
+  return outstrength;
 }
 
 void buildSegment(char Dir){
@@ -1880,6 +1913,7 @@ void buildSegment(char Dir){
   struct block B;
   B.type = blockLookup("redstone_Lamp");
   B.value = 0;
+  B.relDir = '\0';
 
   shift(1,Dir);
   setBlock(B,1);
@@ -1895,6 +1929,7 @@ void seperateNibble(char* type, unsigned char value, char inSide, char stSide){
   struct block B;
   B.type = blockLookup(type);
   B.value = value;
+  B.relDir = '\0';
 
   shift(6,oppDir(inSide));
   shift(2,'d');
@@ -1912,6 +1947,8 @@ void seperateNibble(char* type, unsigned char value, char inSide, char stSide){
 void build7segLights(char* type, unsigned char value, char stSide, char inSide){
   comment("build7segLights");
 
+  char opp_Stside = oppDir(stSide);
+
   //get to corner of display
   shift(1,stSide);
   shift(5,oppDir(inSide));
@@ -1921,25 +1958,27 @@ void build7segLights(char* type, unsigned char value, char stSide, char inSide){
   struct block ice;
   ice.type = blockLookup("ice");
   ice.value = value;
+  ice.relDir = '\0';
 
   //pack case
   struct block casing;
   casing.type = blockLookup(type);
   casing.value = 15;
+  casing.relDir = '\0';
 
   expand(12,'u');
-  expand(8,oppDir(stSide));
+  expand(8,opp_Stside);
   expand(1,oppDir(inSide));
   setBlock(casing,1);
   contract(1,oppDir(inSide));
-  contract(1,oppDir(stSide));
+  contract(1,opp_Stside);
   contract(1,stSide);
   replace("wool",0,0,type,1,value);
   contract(1,oppDir('u'));
   contract(1,oppDir('d'));
   setBlock(ice,1);
   shift(1,inSide);
-  contract(1,oppDir(stSide));
+  contract(1,opp_Stside);
   contract(5,stSide);
   contract(9,'d');
   contract(1,'u');
@@ -1950,7 +1989,7 @@ void build7segLights(char* type, unsigned char value, char stSide, char inSide){
     if(i != 2)
     shift(4,'u');
   }
-  shift(4,oppDir(stSide));
+  shift(4,opp_Stside);
   for(short i = 0; i < 2;i++){
     buildSegment('d');
     if(i != 2){
@@ -2070,6 +2109,12 @@ struct buss{
 };
 
 void freeBuss(struct buss arg){
+
+  if(arg.name == NULL){
+    printf("NULL NAME\n");
+    getchar();
+  }
+
   printf("free(%s)\n",arg.name);
   // free(arg.name);
   free(arg.collors);
@@ -2091,6 +2136,8 @@ struct buss buildStables(struct buss roundKey, char Dir,char stSide){
   ret.collors = malloc(ret.width);
   ret.strength = malloc(ret.width);
 
+  unsigned char outStrength = 0;
+
   for(unsigned char box = 0; box < boxes; box++){
     buildDecoder(inBits,Dir,stSide,rows,significance,box);
     buildEncoder(rows,collumns,stables[box],inBits,outBits,stSide,oppDir(Dir),oppDir(Dir));
@@ -2103,6 +2150,10 @@ struct buss buildStables(struct buss roundKey, char Dir,char stSide){
       shift(((boxes - 1) * (inBits * 2) - 1),stSide);
       shift(4,'d');
     }
+  }
+
+  for(unsigned char i = 0; i < ret.width; i++){
+    ret.strength[i] = outStrength;
   }
 
   //terminate key
@@ -2147,10 +2198,10 @@ void printBussInfo(struct buss arg,char* state){
 struct buss buildPermute
 (
   char* name,struct buss inBuss, /*buss info 1-2*/
-  unsigned char rows, unsigned char cols,unsigned char permTable[rows][cols], /*permTable info 3-5*/
-  unsigned char groupSize, unsigned char groupSpacing,/*group info 6-7*/
-  char forward, char stSide, char inSide,/*direction info 8-10*/
-  _Bool startAtIn, _Bool stayAtOut /*movment info 11-12*/
+  unsigned char tableLength,unsigned char permTable[tableLength], /*permTable info 3-4*/
+  unsigned char groupSize, unsigned char groupSpacing,/*group info 5-6*/
+  char forward, char stSide, char inSide,/*direction info 7-9*/
+  _Bool startAtIn, _Bool stayAtOut /*movment info 10-11*/
 ){
 
   comment("buildPermute");
@@ -2162,67 +2213,64 @@ struct buss buildPermute
     }
     else{
       shift(2,'u');
-      shift((rows * cols) * 2,oppDir(inSide));
+      shift((tableLength) * 2,oppDir(inSide));
       shift(2,oppDir(forward));
     }
   }
 
   struct buss outBuss;
-  outBuss.width = rows * cols;
-  outBuss.collors = malloc(rows * cols);
-  outBuss.strength = malloc(rows * cols);
+  outBuss.width = tableLength;
+  outBuss.collors = malloc(tableLength);
+  outBuss.strength = malloc(tableLength);
   outBuss.name = name;
   outBuss.loc.direction = oppDir(forward);
   outBuss.loc.stSide = stSide;
 
-  for(short row = 0; row < rows; row++){
-    for(short col = 0; col < cols; col++){
-      unsigned char index = row * cols + col;
-      unsigned char group = (permTable[row][col] - 1) / groupSize;
-      unsigned char extLength = group * groupSpacing;
-      unsigned char outLength = (permTable[row][col] * 2) + extLength;
-      short inLength;
+  for(short index = 0; index < tableLength; index++){
+    unsigned char group = (permTable[index] - 1) / groupSize;
+    unsigned char extLength = group * groupSpacing;
+    unsigned char outLength = (permTable[index] * 2) + extLength;
+    short inLength;
 
-      //wool collor for theis line
-      char dataValueIn = inBuss.collors[permTable[row][col] - 1];
-      unsigned char inStreangth = inBuss.strength[permTable[row][col] - 1];
+    //wool collor for theis line
+    char dataValueIn = inBuss.collors[permTable[index] - 1];
+    unsigned char inStreangth = inBuss.strength[permTable[index] - 1];
 
-      unsigned char dataValueOut = index % 16;
-      outBuss.collors[index] = dataValueOut;
+    unsigned char dataValueOut = index % 16;
+    outBuss.collors[index] = dataValueOut;
 
-      //go to end
-      shift(outLength,forward);
-      //go down to bottom
-      shift(2,'d');
+    //go to end
+    shift(outLength,forward);
+    //go down to bottom
+    shift(2,'d');
 
-      //determin input length based on side
-      if(stSide == inSide)
-      inLength = (index + 1) * 2;
-      else
-      inLength = ((rows * cols - index)*2);
+    //determin input length based on side
+    if(stSide == inSide)
+    inLength = (index + 1) * 2;
+    else
+    inLength = ((tableLength - index)*2);
 
-      //shift to input
-      shift(inLength,inSide);
+    //shift to input
+    shift(inLength,inSide);
 
-      //wire to input
-      inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
+    //wire to input
+    inStreangth = wire(inStreangth,4,dataValueIn,inLength,oppDir(inSide));
 
-      //where the busses meet
-      stairs("redstone_Lamp",0,oppDir(forward),'u',2);
+    //where the busses meet
+    stairs("redstone_Lamp",0,oppDir(forward),'u',2);
 
-      //wire to output
-      inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
+    //wire to output
+    inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,oppDir(forward));
 
-      //output reached record its strength
-      outBuss.strength[index] = inStreangth;
+    //output reached record its strength
+    outBuss.strength[index] = inStreangth;
 
-      //dont shift at the end
-      if(index != rows * cols -1){
-        shift(2,oppDir(stSide));
-      }
+    //dont shift at the end
+    if(index != tableLength -1){
+      shift(2,oppDir(stSide));
     }
   }
-  shift((rows * cols -1) * 2,stSide);
+  shift((tableLength -1) * 2,stSide);
 
   if(!stayAtOut){
     if(stSide == inSide){
@@ -2232,13 +2280,10 @@ struct buss buildPermute
     }
     else{
       shift(2,'d');
-      shift(rows * cols * 2,inSide);
+      shift(tableLength * 2,inSide);
       shift(2,forward);
     }
   }
-
-  //old buss is terminated
-  // freeBuss(inBuss);
 
   comment("endbuildPermute");
   return outBuss;
@@ -2251,6 +2296,7 @@ void breakout(unsigned char value,char outSide){
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
+  B.relDir = '\0';
 
   shift(1,outSide);
   setBlock(B,1);
@@ -2267,6 +2313,7 @@ void tower2(unsigned char value,unsigned char levels){
   struct block B;
   B.type = blockLookup("wool");
   B.value = value;
+  B.relDir = '\0';
 
   comment("tower2");
   setBlock(B,1);
@@ -2303,11 +2350,8 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
   unsigned char width = arg.width;
   for(unsigned char i = 0; i < width; i++){
 
-    //pack B
-    struct block B;
-    B.type = blockLookup("wool");
-    if( i != width - 1)
-    B.value = arg.collors[i+1];
+    char opp_Dir = oppDir(Dir);
+    char opp_Stside = oppDir(arg.loc.stSide);
 
     if(type){
       if(i == 0){
@@ -2316,29 +2360,34 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
         flipFlop(Dir);
 
         expand(distance - 2,oppDir(up));
-        expand(1,oppDir(arg.loc.stSide));
+        expand(1,opp_Stside);
 
         if(up == 'd'){
-          shift(3,oppDir(Dir));
+          shift(3,opp_Dir);
           shift(2,'u');
-          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
+          stack(arg.width - 1,opp_Stside,"");
         }
         else{
-          expand(2,'d');
-          shift(3,oppDir(Dir));
-          stack(arg.width - 1,oppDir(arg.loc.stSide),"");
-          contract(2,'u');
+          shift(3,opp_Dir);
+          stack(arg.width - 1,opp_Stside,"");
         }
 
         shift(1,up);
         contract(distance - 2,up);
         expand(2,Dir);
-        stack(arg.width - 1,oppDir(arg.loc.stSide),"");
-        contract(2,oppDir(Dir));
+        stack(arg.width - 1,opp_Stside,"");
+        contract(2,opp_Dir);
         contract(1,arg.loc.stSide);
       }
       if(i != width - 1){
-        shift(2,oppDir(arg.loc.stSide));
+
+        //pack B
+        struct block B;
+        B.type = blockLookup("wool");
+        B.relDir = '\0';
+        B.value = arg.collors[i+1];
+
+        shift(2,opp_Stside);
         setBlock(B,1);
       }
       else{
@@ -2348,10 +2397,12 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
       arg.strength[i] = 14;
     }
     else{
+      shift(1,'u');
       tower2(arg.collors[i],distance / 2);
+      // printf("TC %i ",arg.collors[i+1]);
       if(i != width - 1){
-        shift(distance,oppDir(up));
-        shift(2,oppDir(arg.loc.stSide));
+        shift(distance + 1,'d');
+        shift(2,opp_Stside);
       }
     }
   }
@@ -2395,7 +2446,11 @@ unsigned char **rotateTable(unsigned char rows, unsigned char cols, unsigned cha
   return ret;
 }
 
-struct buss* setKeySchedual(){
+struct keySchedual{
+  struct buss roundKeys[16];
+};
+
+struct keySchedual setKeySchedual(){
   comment("setKeySchedual");
 
   char PC1stSide = 'r';
@@ -2409,54 +2464,63 @@ struct buss* setKeySchedual(){
   struct buss key;
   key.collors = malloc(64); //input key
   key.strength = malloc(64); //input key
+  key.name = "input_Key";
 
   for(int i = 0; i < 64; i++){
     key.collors[i] = i% 16;
     key.strength[i] = 10;
   }
 
-  unsigned char PC1rows = sizeof(PC1) / sizeof(PC1[0]);
-  unsigned char PC1cols = sizeof(PC1[0]) / sizeof(PC1[0][0]);
-  struct buss PC1Results = buildPermute("PC1",key,PC1rows,PC1cols,PC1,1,0,PC1outSide,PC1stSide,PC1inSide,1,1);
+  unsigned char PC1Length = sizeof(PC1) / sizeof(PC1[0]);
+  struct buss PC1Results = buildPermute("PC1",key,PC1Length,PC1,1,0,PC1outSide,PC1stSide,PC1inSide,1,1);
+  freeBuss(key);
 
-  shift(1,'u');
+  unsigned char num_shifts = sizeof(keyshifts) / sizeof(keyshifts[0]);
 
-  size_t num_shifts = sizeof(keyshifts) / sizeof(keyshifts[0]);
-  // size_t num_shifts = 4;
+  unsigned char PC2Length = sizeof(PC2) / sizeof(PC2[0]);
+  unsigned char rotated[PC2Length];
 
-  struct buss* roundKey = malloc(16 * sizeof(struct buss));
+  for(unsigned char j = 0; j < PC2Length; j++){
+    rotated[j] = PC2[j];
+  }
 
-  unsigned char PC2rows = sizeof(PC2) / sizeof(PC2[0]);
-  unsigned char PC2cols = sizeof(PC2[0]) / sizeof(PC2[0][0]);
+  struct keySchedual keyschedual;
 
-  unsigned char rotations = 0;
+  for(unsigned char i = 0; i < num_shifts; i++){
+    short start[2] = {PC2Length - 1,(PC2Length/2) - 1};
+    short end[2] = {PC2Length / 2,0};
 
-  for(size_t i = 0; i < num_shifts; i++){
+    short outLimmitstart[2] = {(PC1Length/2) + 1,1};
+    short outLimmitend[2] = {PC1Length + 1,(PC1Length/2) + 1};
 
-    rotations += keyshifts[i];
-
-    unsigned char ** heapRotated = rotateTable(PC2rows,PC2cols,PC2,rotations,56);
-    unsigned char rotated[PC2rows][PC2cols];
-    for(unsigned char j = 0; j < PC2rows; j++){
-      for(unsigned char k = 0; k < PC2cols; k++){
-        rotated[j][k] = heapRotated[j][k];
+    for(unsigned char k = 0; k < keyshifts[i]; k++){
+      for(short side = 0; side < 2; side++){
+        for(short i = start[side]; i >= end[side]; i--){
+          rotated[i]++;
+          if(rotated[i] >= outLimmitend[side])
+          rotated[i] = outLimmitstart[side];
+        }
       }
-      free(heapRotated[j]);
     }
-    free(heapRotated);
 
-    if(i == 0)
-    PC1Results = bussUp(0,PC1Results,4,'u',1);
+    if(i == 0){
+      PC1Results = bussUp(0,PC1Results,16*12 - 6,'u',1);
+      shift(15*12,'d');
+    }
     else
-    PC1Results = bussUp(0,PC1Results,4,'u',0);
+    shift(12,'u');
 
     if(i != num_shifts - 1)
-    roundKey[i] = buildPermute("PC2",PC1Results,PC2rows,PC2cols,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,0);
+    keyschedual.roundKeys[i] = buildPermute("PC2",PC1Results,PC2Length,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,0);
     else
-    roundKey[i] = buildPermute("PC2",PC1Results,PC2rows,PC2cols,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,1); //stay at end at end
+    keyschedual.roundKeys[i] = buildPermute("PC2",PC1Results,PC2Length,rotated,1,0,PC2outSide,PC2stSide,PC2inSide,1,1); //stay at end at end
+    keyschedual.roundKeys[i].name = "round_Key"; //give it a name
   }
+
+  freeBuss(PC1Results);
+
   comment("endsetKeySchedual");
-  return roundKey;
+  return keyschedual;
 }
 
 //i have no idea what this value does all i know it is in RGB format
@@ -2507,10 +2571,10 @@ void printMaterial(FILE * Mtl,unsigned char value,unsigned char part){
   fprintf(Mtl,"newmtl %s:%i\n\n",reversePartLookup(part),value);
 
   fprintf(Mtl,"# Collor Data #\n");
-  fprintf(Mtl,"Ka %.4f %.4f %.4f \n",(float)(Ka & R)/R,(float)(Ka & G)/G,(float)(Ka & B)/B);
-  fprintf(Mtl,"Kd %.4f %.4f %.4f \n",(float)(Kd & R)/R,(float)(Kd & G)/G,(float)(Kd & B)/B);
-  fprintf(Mtl,"Ks %.4f %.4f %.4f \n",(float)(Ks & R)/R,(float)(Ks & G)/G,(float)(Ks & B)/B);
-  fprintf(Mtl,"Tf %.4f %.4f %.4f \n",(float)(Tf & R)/R,(float)(Tf & G)/G,(float)(Tf & B)/B);
+  fprintf(Mtl,"Ka %.4f %.4f %.4f\n",(float)(Ka & R)/R,(float)(Ka & G)/G,(float)(Ka & B)/B);
+  fprintf(Mtl,"Kd %.4f %.4f %.4f\n",(float)(Kd & R)/R,(float)(Kd & G)/G,(float)(Kd & B)/B);
+  fprintf(Mtl,"Ks %.4f %.4f %.4f\n",(float)(Ks & R)/R,(float)(Ks & G)/G,(float)(Ks & B)/B);
+  fprintf(Mtl,"Tf %.4f %.4f %.4f\n",(float)(Tf & R)/R,(float)(Tf & G)/G,(float)(Tf & B)/B);
 
   fprintf(Mtl,"# Reflection Data #\n");
   fprintf(Mtl,"illum %i\n",illum);
@@ -2596,11 +2660,11 @@ struct redShape{
 };
 
 _Bool redType(char type){
-  return type == blockLookup("redstone") || type == blockLookup("redstone_Block") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_torch") || type == blockLookup("redstone_repeater");
+  return type == blockLookup("redstone") || type == blockLookup("redstone_Block") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_torch") || type == blockLookup("redstone_repeater") || type == blockLookup("piston") || type == blockLookup("sticky_piston");
 }
 
 _Bool solid(char type){
-  return type == blockLookup("wood") || type == blockLookup("wool") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_Block");
+  return type == blockLookup("wood") || type == blockLookup("wool") || type == blockLookup("redstone_Lamp") || type == blockLookup("redstone_Block") || type == blockLookup("piston") || type == blockLookup("sticky_piston");
 }
 
 struct redShape getRedStoneShape(short x, short z, short y){
@@ -2619,15 +2683,17 @@ struct redShape getRedStoneShape(short x, short z, short y){
 
   _Bool U = !lastZ && solid(map[x][z+1][y].type);
 
-  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == blockLookup("redstone") && !U;
-  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == blockLookup("redstone") && !U;
-  _Bool FU = !lastZ && !lastY && map[x][z+1][y+1].type == blockLookup("redstone") && !U;
-  _Bool BU = !lastZ && !frstY && map[x][z+1][y-1].type == blockLookup("redstone") && !U;
+  unsigned char redstoneID = blockLookup("redstone");
 
-  _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == blockLookup("redstone") && !solid(map[x+1][z][y].type);
-  _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == blockLookup("redstone") && !solid(map[x-1][z][y].type);
-  _Bool FD = !frstZ && !lastY && map[x][z-1][y+1].type == blockLookup("redstone") && !solid(map[x][z][y+1].type);
-  _Bool BD = !frstZ && !frstY && map[x][z-1][y-1].type == blockLookup("redstone") && !solid(map[x][z][y-1].type);
+  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == redstoneID && !U;
+  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == redstoneID && !U;
+  _Bool FU = !lastZ && !lastY && map[x][z+1][y+1].type == redstoneID && !U;
+  _Bool BU = !lastZ && !frstY && map[x][z+1][y-1].type == redstoneID && !U;
+
+  _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == redstoneID && !solid(map[x+1][z][y].type);
+  _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == redstoneID && !solid(map[x-1][z][y].type);
+  _Bool FD = !frstZ && !lastY && map[x][z-1][y+1].type == redstoneID && !solid(map[x][z][y+1].type);
+  _Bool BD = !frstZ && !frstY && map[x][z-1][y-1].type == redstoneID && !solid(map[x][z][y-1].type);
 
   struct redShape ret;
 
@@ -3100,11 +3166,13 @@ void bitXOR1(char Dir){
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
+  B1.relDir = '\0';
 
   //pack B2
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 4;
+  B2.relDir = '\0';
 
   comment("bitXOR1");
   setBlock(B1,1);
@@ -3148,11 +3216,15 @@ void bitXOR2(char Dir){
   struct block B1;
   B1.type = blockLookup("wool");
   B1.value = 5;
+  B1.relDir = '\0';
 
   //pack B2
   struct block B2;
   B2.type = blockLookup("wool");
   B2.value = 4;
+  B2.relDir = '\0';
+
+  char opp_Dir = oppDir(Dir);
 
   comment("bitXOR2");
   shift(1,Dir);
@@ -3168,18 +3240,18 @@ void bitXOR2(char Dir){
   setBlock(B1,1);
   expand(1,'d');
   stack(1,'u',"");
-  expand(1,oppDir(Dir));
+  expand(1,opp_Dir);
   expand(3,'u');
   stack(1,Dir,"");
   shift(1,Dir);
   stack(2,Dir,"");
-  shift(1,oppDir(Dir));
+  shift(1,opp_Dir);
   contract(3,'d');
   contract(1,'u');
-  contract(1,oppDir(Dir));
-  setredTorch(oppDir(Dir));
+  contract(1,opp_Dir);
+  setredTorch(opp_Dir);
   shift(2,'u');
-  setredTorch(oppDir(Dir));
+  setredTorch(opp_Dir);
   shift(1,'u');
   shift(1,Dir);
   setRepeater(Dir,0);
@@ -3191,7 +3263,7 @@ void bitXOR2(char Dir){
   shift(1,Dir);
   setRepeater(Dir,0);
   shift(2,'u');
-  setRepeater(oppDir(Dir),0);
+  setRepeater(opp_Dir,0);
   shift(1,'u');
   shift(1,Dir);
   setRepeater(Dir,0);
@@ -3201,12 +3273,12 @@ void bitXOR2(char Dir){
   shift(1,Dir);
   setRepeater(Dir,0);
   shift(2,'d');
-  setRepeater(oppDir(Dir),0);
+  setRepeater(opp_Dir,0);
   shift(1,'u');
   shift(1,Dir);
-  setredTorch(oppDir(Dir));
+  setredTorch(opp_Dir);
   shift(2,'d');
-  setredTorch(oppDir(Dir));
+  setredTorch(opp_Dir);
   shift(4,'u');
   setRepeater(Dir,0);
   shift(1,Dir);
@@ -3259,9 +3331,7 @@ struct buss XOR(_Bool XORType,struct buss inBitsA, struct buss inBitsB){
 
 struct buss* allocateBlock(){
 
-  unsigned char Prows = sizeof(P) / sizeof(P[0]);
-  unsigned char Pcols = sizeof(P[0]) / sizeof(P[0][0]);
-  unsigned char PLength = Prows * Pcols;
+  unsigned char PLength = sizeof(P) / sizeof(P[0]);
 
   struct buss* Block = malloc(2 * sizeof(struct buss));
   Block[0].name = "left_Block";
@@ -3271,9 +3341,9 @@ struct buss* allocateBlock(){
   for(unsigned char H = 0; H < 2; H++){ //both halves
     Block[H].width = PLength;
     Block[H].loc.stSide = 'l';
-    Block[H].collors = malloc(PLength);
+    Block[H].collors  = malloc(PLength);
     Block[H].strength = malloc(PLength);
-    Block[H].collors = malloc(PLength);
+    Block[H].collors  = malloc(PLength);
     Block[H].strength = malloc(PLength);
     for(int i = 0; i < PLength; i++){
       Block[H].collors[i] = i % 16;
@@ -3287,29 +3357,34 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
   comment("turnBuss");
   char oldDir = arg.loc.direction;
   char newDir = turnDir(oldDir,direction);
+  char opp_oldDir = oppDir(oldDir);
+  char opp_newDir = oppDir(newDir);
 
   short width = arg.width;
 
   for(int i = 0; i < width; i++){
+
+    const unsigned char collor = arg.collors[i];
+
     if(flip){
       if(arg.loc.stSide == newDir){
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,oldDir);
-        tower(depth,'d',arg.collors[i]);
-        arg.strength[i] = wire(16,1,arg.collors[i],i * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,oldDir);
+        tower(depth,'d',collor);
+        arg.strength[i] = wire(16,1,collor,i * 2,newDir);
         if(i != width -1){
-          shift(((width - 1) - i) * 2,oppDir(oldDir));
-          shift(i * 2,oppDir(newDir));
-          shift(2,oppDir(newDir));
+          shift(((width - 1) - i) * 2,opp_oldDir);
+          shift(i * 2,opp_newDir);
+          shift(2,opp_newDir);
           shift(depth,'u');
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,oldDir);
-        tower(depth,'d',arg.collors[i]);
-        arg.strength[i] = wire(16,1,arg.collors[i],((width - 1) - i) * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,oldDir);
+        tower(depth,'d',collor);
+        arg.strength[i] = wire(16,1,collor,((width - 1) - i) * 2,newDir);
         if(i != width -1){
-          shift(i * 2,oppDir(oldDir));
-          shift(((width - 1) - i) * 2,oppDir(newDir));
+          shift(i * 2,opp_oldDir);
+          shift(((width - 1) - i) * 2,opp_newDir);
           shift(2,newDir);
           shift(depth,'u');
         }
@@ -3317,20 +3392,20 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
     }
     else{
       if(arg.loc.stSide == newDir){
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,oldDir);
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],i * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,oldDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,newDir);
         if(i != width -1){
-          shift(i * 2,oppDir(oldDir));
-          shift(i * 2,oppDir(newDir));
-          shift(2,oppDir(newDir));
+          shift(i * 2,opp_oldDir);
+          shift(i * 2,opp_newDir);
+          shift(2,opp_newDir);
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,oldDir);
-        arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],((width - 1) - i) * 2,newDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,oldDir);
+        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,newDir);
         if(i != width -1){
-          shift(((width - 1) - i) * 2,oppDir(oldDir));
-          shift(((width - 1) - i) * 2,oppDir(newDir));
+          shift(((width - 1) - i) * 2,opp_oldDir);
+          shift(((width - 1) - i) * 2,opp_newDir);
           shift(2,newDir);
         }
       }
@@ -3341,12 +3416,12 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
       shift((width - 1) * 2,oldDir);
     }
     else{
-      shift((width - 1) * 2,oppDir(oldDir));
+      shift((width - 1) * 2,opp_oldDir);
     }
   }
   else{
     if(arg.loc.stSide != newDir){
-      shift((width - 1) * 2,oppDir(oldDir));
+      shift((width - 1) * 2,opp_oldDir);
     }
     else{
       shift((width - 1) * 2,oldDir);
@@ -3377,7 +3452,7 @@ struct buss bussFlipFlop(struct buss arg){
   return arg;
 }
 
-struct buss halfSwapSides(struct buss inBuss,short amount,char Dir){
+struct buss halfSwapSides(struct buss inBuss,short amount,char turnDir,char shiftDir){
   comment("halfSwapSides");
 
   short bits = inBuss.width;
@@ -3392,39 +3467,47 @@ struct buss halfSwapSides(struct buss inBuss,short amount,char Dir){
     subBuss.loc.stSide = inBuss.loc.stSide;
     subBuss.loc.direction = inBuss.loc.direction;
 
-    for(short j = 0; j < bits/4; j++){
-      subBuss.collors[j] = inBuss.collors[(i * bits/4) + j];
-      subBuss.strength[j] = inBuss.strength[(i * bits/4) + j];
+    if(inBuss.loc.stSide != shiftDir){
+      for(short j = 0; j < bits/4; j++){
+        unsigned char index = i*bits/4 + j;
+        subBuss.collors[j] = inBuss.collors[index];
+        subBuss.strength[j] = inBuss.strength[index];
+      }
+    }
+    else{
+      for(short j = 0; j < bits/4; j++){
+        unsigned char index = ((3 - i) *bits/4 + j);
+        subBuss.collors[j] = inBuss.collors[index];
+        subBuss.strength[j] = inBuss.strength[index];
+      }
     }
 
     if(i != 3){
-      subBuss = bussStraight(subBuss,3);
-      subBuss = turnBuss(subBuss,Dir,1,6 - (i * 2));
+      subBuss = bussStraight(subBuss,2);
+      subBuss = turnBuss(subBuss,turnDir,1,6 - (i*2));
     }
     else{
-      subBuss = bussUp(1,subBuss,2,'u',0);
-      subBuss = turnBuss(subBuss,Dir,1,2);
+      subBuss = bussStairs(subBuss,2,'u');
+      subBuss = turnBuss(subBuss,turnDir,1,2);
     }
 
     subBuss = bussStraight(subBuss,(((amount - 2) - (bits/4 - 1)) * 2) + 4);
     char shiftDir = oppDir(subBuss.loc.direction);
 
-    subBuss = turnBuss(subBuss,Dir,0,0); //direction not used
+    subBuss = turnBuss(subBuss,turnDir,0,0); //direction not used
     subBuss = bussStraight(subBuss,2);
 
     if(i != 3){
       subBuss = bussUp(1,subBuss,6 - (i * 2),'u',0);
-      shift(1,subBuss.loc.direction);
-      subBuss = bussStraight(subBuss,1);
     }
     else{
       subBuss = bussFlipFlop(subBuss);
-      // printBussInfo(subBuss,"afterFlip");
-      shift(1,subBuss.loc.direction);
-      subBuss = bussStraight(subBuss,1);
     }
+    shift(1,subBuss.loc.direction);
+    subBuss = bussStraight(subBuss,1);
+
     if(i != 3){
-      shift(4,oppDir(subBuss.loc.direction));
+      shift(5,oppDir(subBuss.loc.direction));
     }
     shift((((amount - 2) - (bits/4 - 1)) * 2) + 2,shiftDir);
 
@@ -3444,26 +3527,26 @@ struct buss* buildRound(struct buss roundKey, struct buss* block){
 
   char roundDir = roundKey.loc.direction;
   char roundStSide = roundKey.loc.stSide;
+  unsigned char roundWidth = roundKey.width;
+  char oppRoundDir = oppDir(roundDir);
+
   bussUp(1,roundKey,4,'d',0);
   shift(1,'d');
   bussStraight(roundKey,0);
   shift(5,'u');
   shift(8,roundDir);
-  unsigned char Prows = sizeof(P) / sizeof(P[0]);
-  unsigned char Pcols = sizeof(P[0]) / sizeof(P[0][0]);
-  unsigned char PLength = Prows * Pcols;
+  unsigned char PLength = sizeof(P) / sizeof(P[0]);
   bussStraight(roundKey,(PLength * 2) + 1);
   struct buss sBoxResults = buildStables(roundKey,roundDir,roundStSide);
-  struct buss PResults = buildPermute("P_Results",sBoxResults,Prows,Pcols,P,4,4,'f',oppDir(roundDir),roundDir,1,1);
+  struct buss PResults = buildPermute("P_Results",sBoxResults,PLength,P,4,4,'f',oppRoundDir,roundDir,1,1);
   shift(6,'d');
   shift(1,'b');
   shift(((PLength * 2)),roundDir);
-  unsigned char Erows = sizeof(E) / sizeof(E[0]);
-  unsigned char Ecols = sizeof(E[0]) / sizeof(E[0][0]);
-  struct buss EResults = buildPermute("E_Results",block[1],Erows,Ecols,E,1,0,roundDir,'b','b',1,1);
+  unsigned char ELength = sizeof(E) / sizeof(E[0]);
+  struct buss EResults = buildPermute("E_Results",block[1],ELength,E,1,0,roundDir,'b','b',1,1);
   bussStraight(EResults,(PLength * 2) - 1);
   shift(1,'u');
-  shift(8,oppDir(roundDir));
+  shift(8,oppRoundDir);
   XOR(0,roundKey,EResults);
   shift(8,'d');
   shift(2,roundDir);
@@ -3473,161 +3556,204 @@ struct buss* buildRound(struct buss roundKey, struct buss* block){
   shift(1,'f');
   block[0] = XOR(1,block[0],PResults);
   block[0] = bussStraight(block[0],1);
-  block[0] = halfSwapSides(block[0],PLength,oppDir(roundDir));
-  block[1] = bussUp(0,block[1],8,'u',0);
-  shift(14,'d');
-  block[1] = bussStraight(block[1],(roundKey.width * 2) + 4);
+  shift(1,block[0].loc.direction);
+  block[0] = halfSwapSides(block[0],PLength,oppRoundDir,roundDir);
+  block[1] = bussUp(0,block[1],4,'u',0);
+  shift(12,'d');
+  block[1] = bussStraight(block[1],(roundWidth * 2) + 3);
   block[1] = bussUp(1,block[1],6,'u',0);
-  shift(roundKey.width, roundDir);
-  block[1] = halfSwapSides(block[1],PLength,oppDir(roundDir));
-  shift(roundKey.width,oppDir(roundDir));
+  shift(1,block[1].loc.direction);
+  block[1] = bussStraight(block[1],1);
+  shift(roundWidth, roundDir);
+  block[1] = halfSwapSides(block[1],PLength,oppRoundDir,oppRoundDir);
+  shift(roundWidth,oppRoundDir);
   block[1] = bussUp(0,block[1],4,'u',0);
-  block[1] = bussStraight(block[1],(roundKey.width * 2) + 3);
-  block[1] = bussUp(0,block[1],4,'u',0);
+  block[1] = bussStraight(block[1],(roundKey.width * 2) + 1);
+  block[1] = bussStairs(block[1],1,'u');
+
+  block[0].loc.direction = oppDir(block[0].loc.direction);
+  block[1].loc.direction = oppDir(block[1].loc.direction);
+
+  shift(12,oppDir(roundDir));
+  shift(8,'u');
+  shift(2,'f');
+
   comment("endbuildRound");
   return block;
 }
 
-struct buss* bussTap(struct buss arg,char direction){
+struct bussPair{
+  struct buss Tap1;
+  struct buss Tap2;
+};
+
+struct bussPair bussTap(struct buss arg,char direction){
+
+  comment("bussTap");
 
   //pack B
   struct block B;
   B.type = blockLookup("redstone_Lamp");
   B.value = 0;
 
-  comment("bussTap");
-
   char oldDir = arg.loc.direction;
   char newDir = turnDir(oldDir,direction);
+  char opp_oldDir = oppDir(oldDir);
+  char opp_newDir = oppDir(newDir);
 
   short width = arg.width;
 
-  struct buss* ret = malloc(2 * sizeof(struct buss));
-  for(int i = 0; i < 2; i ++){
-    ret[i].collors = malloc(width);
-    ret[i].strength = malloc(width);
-    ret[i].loc.stSide = arg.loc.stSide;
-    ret[i].width = arg.width;
-  }
 
-  ret[1].loc.direction = newDir;
-  ret[0].loc.direction = oldDir;
+  struct bussPair ret;
+
+  ret.Tap1.collors = malloc(width);
+  ret.Tap1.strength = malloc(width);
+  ret.Tap1.loc.stSide = arg.loc.stSide;
+  ret.Tap1.width = width;
+
+  ret.Tap2.collors = malloc(width);
+  ret.Tap2.strength = malloc(width);
+  ret.Tap2.loc.stSide = arg.loc.stSide;
+  ret.Tap2.width = width;
+
+  ret.Tap1.loc.direction = oldDir;
+  ret.Tap2.loc.direction = newDir;
 
   for(int i = 0; i < width; i++){
 
-    ret[0].collors[i] = arg.collors[i];
-    ret[1].collors[i] = arg.collors[i];
+    unsigned char collor = arg.collors[i];
+
+    ret.Tap1.collors[i] = collor;
+    ret.Tap2.collors[i] = collor;
 
     short longDist = ((width - 1) - i) * 2;
     short shortDist = i * 2;
 
     if(arg.loc.stSide == newDir){
-      arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],longDist,oldDir);
+      arg.strength[i] = wire(arg.strength[i],1,collor,longDist,oldDir);
       shift(1,'u');
       setRepeater(oldDir,0);
       shift(1,oldDir);
       setBlock(B,1);
       shift(1,'d');
       shift(1,oldDir);
-      ret[0].strength[i] = wire(15,1,arg.collors[i],shortDist,oldDir);
-      shift(shortDist + 1,oppDir(oldDir));
+      ret.Tap1.strength[i] = wire(15,1,collor,shortDist,oldDir);
+      shift(shortDist + 1,opp_oldDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(15,1,arg.collors[i],0,newDir);
+      ret.Tap2.strength[i] = wire(15,1,collor,0,newDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(ret[1].strength[i],1,arg.collors[i],shortDist + 1,newDir);
+      ret.Tap2.strength[i] = wire(ret.Tap2.strength[i],1,collor,shortDist + 1,newDir);
       shift(2,'u');
       if(i != width - 1){
-        shift(longDist + 1,oppDir(oldDir));
-        shift(shortDist + 3,oppDir(newDir));
+        shift(longDist + 1,opp_oldDir);
+        shift(shortDist + 3,opp_newDir);
       }
       else{
-        shift(longDist + 1,oppDir(newDir));
-        shift(1,oppDir(oldDir));
+        shift(longDist + 1,opp_newDir);
+        shift(1,opp_oldDir);
       }
     }
     else{
-      arg.strength[i] = wire(arg.strength[i],1,arg.collors[i],shortDist,oldDir);
+      arg.strength[i] = wire(arg.strength[i],1,collor,shortDist,oldDir);
       shift(1,'u');
       setRepeater(oldDir,0);
       shift(1,oldDir);
       setBlock(B,1);
       shift(1,'d');
       shift(1,oldDir);
-      ret[0].strength[i] = wire(15,1,arg.collors[i],longDist,oldDir);
-      shift(longDist + 1,oppDir(oldDir));
+      ret.Tap1.strength[i] = wire(15,1,collor,longDist,oldDir);
+      shift(longDist + 1,opp_oldDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(15,1,arg.collors[i],0,newDir);
+      ret.Tap2.strength[i] = wire(15,1,collor,0,newDir);
       shift(1,'d');
-      ret[1].strength[i] = wire(ret[1].strength[i],1,arg.collors[i],longDist + 1,newDir);
+      ret.Tap2.strength[i] = wire(ret.Tap2.strength[i],1,collor,longDist + 1,newDir);
       shift(2,'u');
       if(i != width - 1){
-        shift(shortDist + 1,oppDir(oldDir));
-        shift((longDist + 1) - 2,oppDir(newDir));
+        shift(shortDist + 1,opp_oldDir);
+        shift((longDist + 1) - 2,opp_newDir);
       }
       else{
-        shift(shortDist + 1,oppDir(newDir));
-        shift(1,oppDir(oldDir));
+        shift(shortDist + 1,opp_newDir);
+        shift(1,opp_oldDir);
       }
     }
   }
-  ret[1].loc.stSide = turnDir(ret[1].loc.stSide,direction);
+  ret.Tap2.loc.stSide = turnDir(ret.Tap2.loc.stSide,direction);
   if(arg.loc.stSide != newDir){
-    shift((width - 1) * 2,oppDir(oldDir));
+    shift((width - 1) * 2,opp_oldDir);
   }
   else{
     shift((width - 1) * 2,oldDir);
   }
-  ret[1].loc.stSide = oppDir(ret[1].loc.stSide);
+  ret.Tap2.loc.stSide = oppDir(ret.Tap2.loc.stSide);
+
+  ret.Tap1.name = "Tap1";
+  ret.Tap2.name = "Tap2";
 
   comment("endbussTap");
   return ret;
 }
 
-struct buss* buildRoundKeyBuss(struct buss roundKey){
+struct DESKeys{
+  struct buss encrypt[16];
+  struct buss decrypt[16];
+};
 
-  short spaceBetween = 8;
-
+struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
   comment("buildRoundKeyBuss");
-  struct buss* DESKeys = bussTap(roundKey,'l');
-  DESKeys[0].name = "encrypt";
-  DESKeys[1].name = "decrypt";
+
+  short block_space = 30;
+  short row_space = 12;
+
+  char round_Stside = keySchedual.roundKeys[0].loc.stSide;
+  char round_Dir = keySchedual.roundKeys[0].loc.direction;
+  unsigned char round_width = keySchedual.roundKeys[0].width;
+
+  struct DESKeys ret;
 
   // printBussInfo(DESKeys[1],"beforeBussDown");
 
-  unsigned char numKeys = 16;
+  unsigned char numKeys = 4;
 
-  shift(4,'d');
-  for(int i = 1; i < numKeys; i++){
+  for(int i = 0; i < numKeys; i++){
     printf("1 key# %i \n",i);
-    bussTap(roundKey,'l');
+    struct bussPair tapPair = bussTap(keySchedual.roundKeys[i],'l');
+    ret.encrypt[i] = tapPair.Tap1;
+    ret.decrypt[i] = tapPair.Tap2;
+    ret.decrypt[i].name = "DECRYPT";
+    ret.encrypt[i].name = "ENCRYPT";
     if(i != numKeys - 1)
-    shift(4,'d');
+    shift(row_space,'d');
   }
-  shift(roundKey.width * 2,oppDir(roundKey.loc.stSide));
+
+  for(int i = 0; i < 16; i++){
+    freeBuss(keySchedual.roundKeys[i]);
+  }
+
+  shift(round_width * 2,oppDir(round_Stside));
   shift(2,'d');
-  shift(1,roundKey.loc.direction);
+  shift(1,round_Dir);
 
   for(int i = 0; i < numKeys; i++){
     printf("2 key# %i \n",i);
-    bussStraight(DESKeys[1],(i * 2) + 4);
-    struct buss outKey = bussUp(1,DESKeys[1],(i * 8) + spaceBetween,'d',1);
+    bussStraight(ret.decrypt[i],(i * 2) + 4);
+    struct buss outKey = bussUp(1,ret.decrypt[i],i * row_space * 2 + block_space,'d',1);
     shift(1,outKey.loc.direction);
     bussStraight(outKey,(i * 2));
 
-    turnBuss(outKey,'l',0,0);
+    ret.decrypt[i] = turnBuss(outKey,'l',0,0);
     shift(outKey.width * 2 - 2,outKey.loc.stSide);
     shift(outKey.width * 2 - 2,oppDir(outKey.loc.direction));
 
     shift(3,outKey.loc.direction);
     if(i != numKeys - 1){
-      shift(3,DESKeys[1].loc.direction);
-      shift((i * 8) + spaceBetween + 4,'u');
+      shift(3,oppDir(outKey.loc.direction));
+      shift(i*row_space*2 + block_space + row_space,'u');
     }
   }
 
-  freeBuss(roundKey);
   comment("endbuildRoundKeyBuss");
-  return DESKeys;
+  return ret;
 }
 
 int main(){
@@ -3636,10 +3762,6 @@ int main(){
   map = malloc(mapW * sizeof(struct block**));
   map[0] = malloc(mapH * sizeof(struct block*));
   map[0][0] = malloc(mapD * sizeof(struct block));
-
-
-  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-  // struct buss* block = allocateBlock();
 
   // for(int i = 0; i < 10; i++){
   //   for(int j = 0; j < 10; j++){
@@ -3650,8 +3772,24 @@ int main(){
   // }
   // printf("\n");
 
+  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
 
-  // buildOutput(8,'l','b');
+  // unsigned char rounds = 5;
+  //
+  // for(int i = 0; i < rounds; i++){
+  //   struct buss* block = allocateBlock();
+  //   buildRound(createTestBuss("TEST_1",48,'r','b'),block);
+  //   showProgress(i,rounds,"Building DES round");
+  // }
+
+  struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
+
+  for(int i = 0; i < 4; i++){\
+    freeBuss(keys.encrypt[i]);
+    freeBuss(keys.decrypt[i]);
+  }
+
+  // buildOutput(32,'l','b');
 
   // for(int i = 0; i < 4; i++){
   //   setRepeater('f',i);
@@ -3676,14 +3814,12 @@ int main(){
 
   // Test = bussFlipFlop(Test);
 
-  // buildRound(Test,block);
 
   // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-  // buildRoundKeyBuss(Test);
 
   // bussTap(Test,'l');
 
-  setKeySchedual();
+  // setKeySchedual();
 
   // Test = turnBuss(Test,'l',1,2,'u');
 
