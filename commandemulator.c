@@ -219,7 +219,7 @@ struct point{
 //keep track of raw size for convienience
 short mapW = 1,mapH = 1,mapD = 1;
 
-int getIndex(short x, short z, short y){
+int getIndex(short x, short z, short y, short mapH, short mapD){
   return x*mapH + z*mapD + y;
 }
 
@@ -378,7 +378,7 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int collor = backround;
       for(short z = 0; z < mapH; z++){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor > 0){
@@ -408,7 +408,7 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int  collor = backround;
       for(short y = mapD - 1; y >= 0; y--){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor != 0){
@@ -438,7 +438,7 @@ void buildImmages(){
     for(short y = mapD - 1; y >= 0; y--){
       unsigned int  collor = backround;
       for(short x = 0; x < mapW; x++){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor != 0){
@@ -497,15 +497,41 @@ void expandBlockMap(unsigned short change, char Dir){
   else if(Dir == 'f' || Dir == 'b')//if the direction is forward or backward the map will get shallower
   mapD = abs(mapYB - mapYA) + 1;
 
-  //1 realloc to rule them all
+  //1 malloc to rule them all
+  struct block* temp = malloc(mapW * mapH * mapD * sizeof(struct block));
+
+  for(short x = 0; x < tempW; x++){
+    for(short z = 0; z < tempH; z++){
+      for(short y = 0; y < tempD; y++){
+        int orig_index = getIndex(x,z,y,tempH,tempD); //old centext
+        int dest_index = getIndex(x,z,y,mapH,mapD); //new context
+        temp[orig_index] = map[dest_index]; //copy block into new context
+        map[orig_index].relDir = '\0';
+        map[orig_index].type = 0;
+        map[orig_index].value = 0;
+      }
+    }
+  }
+
   map = realloc(map,mapW * mapH * mapD * sizeof(struct block));
+
+  for(short x = 0; x < mapW; x++){
+    for(short z = 0; z < mapH; z++){
+      for(short y = 0; y < mapD; y++){
+        int index = getIndex(x,z,y,mapH,mapD); //new context
+        map[index] = temp[index];
+      }
+    }
+  }
+
+  free(temp);
 
   //memory allocation
   if(Dir == 'r' || Dir == 'l'){
     for(short x = tempW; x < mapW; x++){
       for(short z = 0; z < mapH; z++){
         for(short y = 0; y < mapD; y++){
-          int index = getIndex(x,z,y);
+          int index = getIndex(x,z,y,mapH,mapD);
           map[index].type = 0;
           map[index].value = 0;
           map[index].relDir = 0;
@@ -519,8 +545,8 @@ void expandBlockMap(unsigned short change, char Dir){
       for(short x = mapW - 1; x >= shift_Amt; x--){
         for(short z = 0; z < mapH; z++){
           for(short y = 0; y < mapD; y++){
-            int dest_index = getIndex(x,z,y);
-            int orig_index = getIndex(x-shift_Amt,z,y);
+            int dest_index = getIndex(x,z,y,mapH,mapD);
+            int orig_index = getIndex(x-shift_Amt,z,y,mapH,mapD);
             map[dest_index] = map[orig_index];
           }
         }
@@ -529,7 +555,7 @@ void expandBlockMap(unsigned short change, char Dir){
       for(short x = shift_Amt - 1; x >= 0; x--){
         for(short z = 0; z < mapH; z++){
           for(short y = 0; y < mapD; y++){
-            int index = getIndex(x,z,y);
+            int index = getIndex(x,z,y,mapH,mapD);
             map[index].type = 0;
             map[index].value = 0;
             map[index].relDir = 0;
@@ -550,7 +576,7 @@ void expandBlockMap(unsigned short change, char Dir){
     for(short x = 0; x < mapW; x++){
       for(short z = tempH; z < mapH; z++){
         for(short y = 0; y < mapD; y++){
-          int index = getIndex(x,z,y);
+          int index = getIndex(x,z,y,mapH,mapD);
           map[index].type = 0;
           map[index].value = 0;
           map[index].relDir = 0;
@@ -561,15 +587,15 @@ void expandBlockMap(unsigned short change, char Dir){
         unsigned short shift_Amt = mapH - tempH;
         for(short z = mapH - 1; z >= shift_Amt; z--){
           for(short y = 0; y < mapD; y++){
-            int dest_index = getIndex(x,z,y);
-            int orig_index = getIndex(x,z-shift_Amt,y);
+            int dest_index = getIndex(x,z,y,mapH,mapD);
+            int orig_index = getIndex(x,z-shift_Amt,y,mapH,mapD);
             map[dest_index] = map[orig_index];
           }
         }
         //reallocate new empty space (unshifted portion)
         for(short z = shift_Amt - 1; z >= 0; z--){
           for(short y = 0; y < mapD; y++){
-            int index = getIndex(x,z,y);
+            int index = getIndex(x,z,y,mapH,mapD);
             map[index].type = 0;
             map[index].value = 0;
             map[index].relDir = 0;
@@ -591,7 +617,7 @@ void expandBlockMap(unsigned short change, char Dir){
     for(short x = 0; x < mapW; x++){
       for(short z = 0; z < mapH; z++){
         for(short y = tempD; y < mapD; y++){
-          int index = getIndex(x,z,y);
+          int index = getIndex(x,z,y,mapH,mapD);
           map[index].type = 0;
           map[index].value = 0;
           map[index].relDir = 0;
@@ -600,13 +626,13 @@ void expandBlockMap(unsigned short change, char Dir){
         if(Dir == 'b'){
           unsigned short shift_Amt = mapD - tempD;
           for(short y = mapD - 1; y >= shift_Amt; y--){
-            int dest_index = getIndex(x,z,y);
-            int orig_index = getIndex(x,z,y-shift_Amt);
+            int dest_index = getIndex(x,z,y,mapH,mapD);
+            int orig_index = getIndex(x,z,y-shift_Amt,mapH,mapD);
             map[dest_index] = map[orig_index];
           }
           //0 the data unshifted
           for(short y = shift_Amt - 1; y >= 0; y--){
-            int index = getIndex(x,z,y);
+            int index = getIndex(x,z,y,mapH,mapD);
             map[index].type = 0;
             map[index].value = 0;
             map[index].relDir = 0;
@@ -677,7 +703,7 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
   for(short x = selExt.r; x <= selExt.l; x++){
     for(short z = selExt.d; z <= selExt.u; z++){
       for(short y = selExt.b; y <= selExt.f; y++){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         if(blockLookup(typeA) == map[index].type){
           struct block B;
           B.relDir = '\0';
@@ -715,7 +741,7 @@ void setBlock(struct block B, _Bool wait){
   for(short x = selExt.r; x <= selExt.l; x++){
     for(short z = selExt.d; z <= selExt.u; z++){
       for(short y = selExt.b; y <= selExt.f; y++){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         map[index] = B;
       }
     }
@@ -737,7 +763,7 @@ void overlay(char* type, unsigned char value){
     for(short y = selExt.b; y <= selExt.f; y++){
       for(short z = selExt.u; z >= selExt.d; z--){ //height last
 
-        int origin = getIndex(x,z,y);
+        int origin = getIndex(x,z,y,mapH,mapD);
 
         //only fill in air and the block under it is not air
         if(map[origin].type != 0){
@@ -747,7 +773,7 @@ void overlay(char* type, unsigned char value){
           B.value = value;
           B.relDir = '\0';
 
-          int above = getIndex(x,z+1,y);
+          int above = getIndex(x,z+1,y,mapH,mapD);
           map[above] = B; //place block
           break; //only place 1 block per xz coordinate (only the top portion of the selected blocks)
         }
@@ -785,8 +811,8 @@ struct block* copySel(){
   for(short x = selExt.r; x <= selExt.l; x++){
     for(short z = selExt.d; z <= selExt.u; z++){
       for(short y = selExt.b; y <= selExt.f; y++){
-        int orig_index = getIndex(x,z,y);
-        int dest_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
+        int orig_index = getIndex(x,z,y,mapH,mapD);
+        int dest_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b,mapH,mapD);
 
         //get blocks, the right blocks and put them right in the right location
         ret[dest_index] = map[orig_index];
@@ -824,8 +850,8 @@ void pasteSel(struct block* arg,short amount, char Dir){
         }
 
         //indexes
-        int orig_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
-        int dest_index = getIndex(blockBX,blockBZ,blockBY);
+        int orig_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b,mapH,mapD);
+        int dest_index = getIndex(blockBX,blockBZ,blockBY,mapH,mapD);
 
         //place block
         map[dest_index] = arg[orig_index];
@@ -929,8 +955,8 @@ void stack(short amount,char Dir, char* options){
               case 'b': blockBZ -= selD * (p+1); break;
             }
 
-            int orig_index = getIndex(i,j,k);
-            int dest_index = getIndex(blockBX,blockBY,blockBZ);
+            int orig_index = getIndex(i,j,k,mapH,mapD);
+            int dest_index = getIndex(blockBX,blockBY,blockBZ,mapH,mapD);
 
             //new block = old block
             if(!preserveAir || !map[orig_index].type == 0){
@@ -1405,7 +1431,7 @@ void line(char* type, unsigned char value){
           B.value = value;
           B.relDir = '\0';
 
-          int index = getIndex(i,j,k);
+          int index = getIndex(i,j,k,mapH,mapD);
           //place block at point c
           map[index] = B;
         }
@@ -1446,7 +1472,7 @@ void delete(){
     for(short j = selExt.d; j <= selExt.u; j++){
       for(short k = selExt.b; k <= selExt.f; k++){
 
-        int index = getIndex(i,j,k);
+        int index = getIndex(i,j,k,mapH,mapD);
         // printf("%i %i %i > %i %i\n",blockX,blockY,blockZ,B.type,B.value);
         map[index].type = 0;
         map[index].value = 0;
@@ -2702,31 +2728,31 @@ struct redShape getRedStoneShape(short x, short z, short y){
   _Bool lastY = (y == mapD - 1);
   _Bool frstY = (y == 0);
 
-  _Bool L = !lastX && redType(map[getIndex(x+1,z,y)].type);
-  _Bool R = !frstX && redType(map[getIndex(x-1,z,y)].type);
-  _Bool F = !lastY && redType(map[getIndex(x,z,y+1)].type);
-  _Bool B = !frstY && redType(map[getIndex(x,z,y-1)].type);
+  _Bool L = !lastX && redType(map[getIndex(x+1,z,y,mapH,mapD)].type);
+  _Bool R = !frstX && redType(map[getIndex(x-1,z,y,mapH,mapD)].type);
+  _Bool F = !lastY && redType(map[getIndex(x,z,y+1,mapH,mapD)].type);
+  _Bool B = !frstY && redType(map[getIndex(x,z,y-1,mapH,mapD)].type);
 
-  _Bool U = !lastZ && solid(map[getIndex(x,z+1,y)].type);
+  _Bool U = !lastZ && solid(map[getIndex(x,z+1,y,mapH,mapD)].type);
 
   unsigned char redstoneID = blockLookup("redstone");
 
-  _Bool LU = !lastZ && !lastX && map[getIndex(x+1,z+1,y)].type == redstoneID && !U;
-  _Bool RU = !lastZ && !frstX && map[getIndex(x-1,z+1,y)].type == redstoneID && !U;
-  _Bool FU = !lastZ && !lastY && map[getIndex(x,z+1,y+1)].type == redstoneID && !U;
-  _Bool BU = !lastZ && !frstY && map[getIndex(x,z+1,y-1)].type == redstoneID && !U;
+  _Bool LU = !lastZ && !lastX && map[getIndex(x+1,z+1,y,mapH,mapD)].type == redstoneID && !U;
+  _Bool RU = !lastZ && !frstX && map[getIndex(x-1,z+1,y,mapH,mapD)].type == redstoneID && !U;
+  _Bool FU = !lastZ && !lastY && map[getIndex(x,z+1,y+1,mapH,mapD)].type == redstoneID && !U;
+  _Bool BU = !lastZ && !frstY && map[getIndex(x,z+1,y-1,mapH,mapD)].type == redstoneID && !U;
 
-  _Bool LD = !lastX && !frstZ && map[getIndex(x+1,z-1,y)].type == redstoneID && !solid(map[getIndex(x+1,z,y)].type);
-  _Bool RD = !frstX && !frstZ && map[getIndex(x-1,z-1,y)].type == redstoneID && !solid(map[getIndex(x-1,z,y)].type);
-  _Bool FD = !frstZ && !lastY && map[getIndex(x,z-1,y+1)].type == redstoneID && !solid(map[getIndex(x,z,y+1)].type);
-  _Bool BD = !frstZ && !frstY && map[getIndex(x,z-1,y-1)].type == redstoneID && !solid(map[getIndex(x,z,y-1)].type);
+  _Bool LD = !lastX && !frstZ && map[getIndex(x+1,z-1,y,mapH,mapD)].type == redstoneID && !solid(map[getIndex(x+1,z,y,mapH,mapD)].type);
+  _Bool RD = !frstX && !frstZ && map[getIndex(x-1,z-1,y,mapH,mapD)].type == redstoneID && !solid(map[getIndex(x-1,z,y,mapH,mapD)].type);
+  _Bool FD = !frstZ && !lastY && map[getIndex(x,z-1,y+1,mapH,mapD)].type == redstoneID && !solid(map[getIndex(x,z,y+1,mapH,mapD)].type);
+  _Bool BD = !frstZ && !frstY && map[getIndex(x,z-1,y-1,mapH,mapD)].type == redstoneID && !solid(map[getIndex(x,z,y-1,mapH,mapD)].type);
 
   struct redShape ret;
 
-  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !lastX && solid(map[getIndex(x+1,z,y)].type));
-  ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[getIndex(x-1,z,y)].type));
-  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !lastY && solid(map[getIndex(x,z,y+1)].type));
-  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstY && solid(map[getIndex(x,z,y-1)].type));
+  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !lastX && solid(map[getIndex(x+1,z,y,mapH,mapD)].type));
+  ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[getIndex(x-1,z,y,mapH,mapD)].type));
+  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !lastY && solid(map[getIndex(x,z,y+1,mapH,mapD)].type));
+  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstY && solid(map[getIndex(x,z,y-1,mapH,mapD)].type));
 
   ret.extend[4] = LU;
   ret.extend[5] = RU;
@@ -2775,7 +2801,7 @@ unsigned char numerateDir(char Dir){
 
 struct subVoxelPack getsubVoxels(short x, short z, short y){
 
-  int index = getIndex(x,z,y);
+  int index = getIndex(x,z,y,mapH,mapD);
 
   unsigned char type = map[index].type;
   unsigned char value = map[index].value;
@@ -2783,12 +2809,12 @@ struct subVoxelPack getsubVoxels(short x, short z, short y){
 
   char adjacent[6];
 
-  adjacent[0] = (x == mapW - 1? 0 : map[getIndex(x + 1,z,y)].type);
-  adjacent[1] = (x == 0? 0 : map[getIndex(x - 1,z,y)].type);
-  adjacent[2] = (y == mapD - 1? 0 : map[getIndex(x,z,y + 1)].type);
-  adjacent[3] = (y == 0? 0 : map[getIndex(x,z,y - 1)].type);
-  adjacent[4] = (z == mapH - 1? 0 : map[getIndex(x,z + 1,y)].type);
-  adjacent[5] = (z == 0? 0 : map[getIndex(x,z - 1,y)].type);
+  adjacent[0] = (x == mapW - 1? 0 : map[getIndex(x + 1,z,y,mapH,mapD)].type);
+  adjacent[1] = (x == 0? 0 : map[getIndex(x - 1,z,y,mapH,mapD)].type);
+  adjacent[2] = (y == mapD - 1? 0 : map[getIndex(x,z,y + 1,mapH,mapD)].type);
+  adjacent[3] = (y == 0? 0 : map[getIndex(x,z,y - 1,mapH,mapD)].type);
+  adjacent[4] = (z == mapH - 1? 0 : map[getIndex(x,z + 1,y,mapH,mapD)].type);
+  adjacent[5] = (z == 0? 0 : map[getIndex(x,z - 1,y,mapH,mapD)].type);
 
   struct subVoxelPack ret;
 
@@ -3095,7 +3121,7 @@ void buildWaveFront(){
   for(short x = 0; x < mapW; x++){
     for(short z = 0; z < mapH; z++){
       for(short y = 0; y < mapD; y++){
-        int index = getIndex(x,z,y);
+        int index = getIndex(x,z,y,mapH,mapD);
         if(map[index].type != 0){
           char type = map[index].type;
           unsigned char data = map[index].value;
@@ -3855,8 +3881,8 @@ int main(){
   wire(5,3,7,70,'f');
 
 
-  // buildMaterialLibrary();
-  // buildWaveFront();
+  buildMaterialLibrary();
+  buildWaveFront();
   buildImmages();
   // printFileBuffer(script);
 
