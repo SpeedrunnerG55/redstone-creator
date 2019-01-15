@@ -583,9 +583,8 @@ void expandBlockMap(unsigned short change, char Dir){
         if(Dir == 'b'){
           unsigned short shift_Amt = mapD - tempD;
           for(short y = mapD - 1; y >= shift_Amt; y--){
-            map[x][z][y].type = map[x][z][y-shift_Amt].type;
-            map[x][z][y].value = map[x][z][y-shift_Amt].value;
-            map[x][z][y].relDir = map[x][z][y-shift_Amt].relDir;
+            map[x][z][y] = map[x][z][y-shift_Amt];
+
           }
           //0 the data unshifted
           for(short y = shift_Amt - 1; y >= 0; y--){
@@ -765,9 +764,7 @@ struct block*** copySel(){
       ret[i-selExt.r][j-selExt.d] = malloc(selD * sizeof(struct block));
       for(short k = selExt.b; k <= selExt.f; k++){
         //get blocks, the right blocks and put them right in the right location
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].type = map[i][j][k].type;
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].value = map[i][j][k].value;
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].relDir = map[i][j][k].relDir;
+        ret[i-selExt.r][j-selExt.d][k-selExt.b] = map[i][j][k];
 
         //remove old block
         map[i][j][k].type = 0;
@@ -3782,6 +3779,8 @@ int main(){
   //   showProgress(i,rounds,"Building DES round");
   // }
 
+  // setKeySchedual();
+
   struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
 
   for(int i = 0; i < 4; i++){\
@@ -3823,8 +3822,8 @@ int main(){
 
   // Test = turnBuss(Test,'l',1,2,'u');
 
-  buildMaterialLibrary();
-  buildWaveFront();
+  // buildMaterialLibrary();
+  // buildWaveFront();
   buildImmages();
   // printFileBuffer(script);
 
