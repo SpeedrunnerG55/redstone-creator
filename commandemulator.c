@@ -332,7 +332,7 @@ _Bool inSel(short x,short z,short y){
 }
 
 void showFloat(float arg){
-  unsigned char barLength = 20;
+  unsigned char barLength = 10;
   printf("[");
   for(short i = 0; i < arg * barLength; i++) printf("#");
   for(short i = arg * barLength; i < barLength; i++) printf(" ");
@@ -602,9 +602,7 @@ void expandBlockMap(unsigned short change, char Dir){
           for(short y = mapD - 1; y >= shift_Amt; y--){
             int dest_index = getIndex(x,z,y);
             int orig_index = getIndex(x,z,y-shift_Amt);
-            map[dest_index].type = map[orig_index].type;
-            map[dest_index].value = map[orig_index].value;
-            map[dest_index].relDir = map[orig_index].relDir;
+            map[dest_index] = map[orig_index];
           }
           //0 the data unshifted
           for(short y = shift_Amt - 1; y >= 0; y--){
@@ -791,9 +789,7 @@ struct block* copySel(){
         int dest_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
 
         //get blocks, the right blocks and put them right in the right location
-        ret[dest_index].type = map[orig_index].type;
-        ret[dest_index].value = map[orig_index].value;
-        ret[dest_index].relDir = map[orig_index].relDir;
+        ret[dest_index] = map[orig_index];
 
         //remove old block
         map[orig_index].type = 0;
@@ -3786,6 +3782,11 @@ int main(){
 
   //memory allocation
   map = malloc(sizeof(struct block));
+  struct block B;
+  B.relDir = '\0';
+  B.type = blockLookup("air");
+  B.value = 0;
+  setBlock(B,1);
 
   // for(int i = 0; i < 10; i++){
   //   for(int j = 0; j < 10; j++){
@@ -3806,12 +3807,14 @@ int main(){
   //   showProgress(i,rounds,"Building DES round");
   // }
 
-  struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
+  // setKeySchedual();
 
-  for(int i = 0; i < 4; i++){\
-    freeBuss(keys.encrypt[i]);
-    freeBuss(keys.decrypt[i]);
-  }
+  // struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
+  //
+  // for(int i = 0; i < 4; i++){
+  //   freeBuss(keys.encrypt[i]);
+  //   freeBuss(keys.decrypt[i]);
+  // }
 
   // buildOutput(32,'l','b');
 
@@ -3847,8 +3850,13 @@ int main(){
 
   // Test = turnBuss(Test,'l',1,2,'u');
 
-  buildMaterialLibrary();
-  buildWaveFront();
+
+  shift(19,'r');
+  wire(5,3,7,70,'f');
+
+
+  // buildMaterialLibrary();
+  // buildWaveFront();
   buildImmages();
   // printFileBuffer(script);
 
