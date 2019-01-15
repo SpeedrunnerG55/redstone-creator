@@ -3144,12 +3144,12 @@ struct buss createTestBuss(char* name,unsigned char width,char direction, char s
 
 void freeBlockMap(){
   printf("free W%i D%i H%i %lu \n",mapW,mapD,mapH,mapW*mapD*mapH * sizeof(struct block));
-  for(short i = 0; i < mapW; i++){
-    for(short j = 0; j < mapH; j++){
-      free(map[i][j]);
+  for(short x = 0; x < mapW; x++){
+    for(short z = 0; z < mapH; z++){
+      free(map[x][z]);
     }
-    free(map[i]);
-    showProgress(i,mapW,"freeing block map");
+    free(map[x]);
+    showProgress(x,mapW,"freeing block map");
   }
   free(map);
   printf("free(bMap.map);\n");
