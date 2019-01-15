@@ -207,7 +207,7 @@ struct block{
 };
 
 // x z y
-struct block ***map;
+struct block *map;
 
 struct point{
   short x;
@@ -218,6 +218,11 @@ struct point{
 //Block map
 //keep track of raw size for convienience
 short mapW = 1,mapH = 1,mapD = 1;
+
+int getIndex(short x, short z, short y){
+  return x*mapH + z*mapD + y;
+}
+
 //teh extent of the canvas as a function of 2 of its corners
 short mapXA = 0,mapZA = 0,mapYA = 0,mapXB = 0,mapZB = 0,mapYB = 0;
 
@@ -373,8 +378,9 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int collor = backround;
       for(short z = 0; z < mapH; z++){
-        if(!mask(map[x][z][y].type)){
-          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+        int index = getIndex(x,z,y);
+        if(!mask(map[index].type)){
+          int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor > 0){
             collor = blockCollor;
             float scaler = (float)z / (mapH);
@@ -402,8 +408,9 @@ void buildImmages(){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int  collor = backround;
       for(short y = mapD - 1; y >= 0; y--){
-        if(!mask(map[x][z][y].type)){
-          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+        int index = getIndex(x,z,y);
+        if(!mask(map[index].type)){
+          int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor != 0){
             collor = blockCollor;
             float scaler = (float)(mapD - y) / mapD;
@@ -431,8 +438,9 @@ void buildImmages(){
     for(short y = mapD - 1; y >= 0; y--){
       unsigned int  collor = backround;
       for(short x = 0; x < mapW; x++){
-        if(!mask(map[x][z][y].type)){
-          int blockCollor = collorLookup(map[x][z][y].value,PartLookup(getPartnameForBlock(map[x][z][y].type,0)));
+        int index = getIndex(x,z,y);
+        if(!mask(map[index].type)){
+          int blockCollor = collorLookup(map[index].value,PartLookup(getPartnameForBlock(map[index].type,0)));
           if(blockCollor != 0){
             collor = blockCollor;
             float scaler = (float)(mapW - x) / mapW;
@@ -489,17 +497,18 @@ void expandBlockMap(unsigned short change, char Dir){
   else if(Dir == 'f' || Dir == 'b')//if the direction is forward or backward the map will get shallower
   mapD = abs(mapYB - mapYA) + 1;
 
+  //1 realloc to rule them all
+  map = realloc(map,mapW * mapH * mapD * sizeof(struct block));
+
   //memory allocation
   if(Dir == 'r' || Dir == 'l'){
-    map = realloc(map,mapW * sizeof(struct block**));
     for(short x = tempW; x < mapW; x++){
-      map[x] = malloc(mapH * sizeof(struct block*));
       for(short z = 0; z < mapH; z++){
-        map[x][z] = malloc(mapD * sizeof(struct block));
         for(short y = 0; y < mapD; y++){
-          map[x][z][y].type = 0;
-          map[x][z][y].value = 0;
-          map[x][z][y].relDir = 0;
+          int index = getIndex(x,z,y);
+          map[index].type = 0;
+          map[index].value = 0;
+          map[index].relDir = 0;
         }
       }
       showProgress(x,mapW,"allocating memory for new x's");
@@ -508,17 +517,22 @@ void expandBlockMap(unsigned short change, char Dir){
     if(Dir == 'r'){
       unsigned short shift_Amt = mapW - tempW;
       for(short x = mapW - 1; x >= shift_Amt; x--){
-        map[x] = map[x-shift_Amt];
+        for(short z = 0; z < mapH; z++){
+          for(short y = 0; y < mapD; y++){
+            int dest_index = getIndex(x,z,y);
+            int orig_index = getIndex(x-shift_Amt,z,y);
+            map[dest_index] = map[orig_index];
+          }
+        }
       }
       //reallocate new empty space (unshifted portion)
       for(short x = shift_Amt - 1; x >= 0; x--){
-        map[x] = malloc(mapH * sizeof(struct block*));
         for(short z = 0; z < mapH; z++){
-          map[x][z] = malloc(mapD * sizeof(struct block));
           for(short y = 0; y < mapD; y++){
-            map[x][z][y].type = 0;
-            map[x][z][y].value = 0;
-            map[x][z][y].relDir = 0;
+            int index = getIndex(x,z,y);
+            map[index].type = 0;
+            map[index].value = 0;
+            map[index].relDir = 0;
           }
         }
       }
@@ -534,28 +548,31 @@ void expandBlockMap(unsigned short change, char Dir){
 
   else if(Dir == 'u' || Dir == 'd'){
     for(short x = 0; x < mapW; x++){
-      map[x] = realloc(map[x],mapH * sizeof(struct block*));
       for(short z = tempH; z < mapH; z++){
-        map[x][z] = malloc(mapD * sizeof(struct block));
         for(short y = 0; y < mapD; y++){
-          map[x][z][y].type = 0;
-          map[x][z][y].value = 0;
-          map[x][z][y].relDir = 0;
+          int index = getIndex(x,z,y);
+          map[index].type = 0;
+          map[index].value = 0;
+          map[index].relDir = 0;
         }
       }
       //shift data
       if(Dir == 'd'){
         unsigned short shift_Amt = mapH - tempH;
         for(short z = mapH - 1; z >= shift_Amt; z--){
-          map[x][z] = map[x][z-shift_Amt];
+          for(short y = 0; y < mapD; y++){
+            int dest_index = getIndex(x,z,y);
+            int orig_index = getIndex(x,z-shift_Amt,y);
+            map[dest_index] = map[orig_index];
+          }
         }
         //reallocate new empty space (unshifted portion)
         for(short z = shift_Amt - 1; z >= 0; z--){
-          map[x][z] = malloc(mapD * sizeof(struct block));
           for(short y = 0; y < mapD; y++){
-            map[x][z][y].type = 0;
-            map[x][z][y].value = 0;
-            map[x][z][y].relDir = 0;
+            int index = getIndex(x,z,y);
+            map[index].type = 0;
+            map[index].value = 0;
+            map[index].relDir = 0;
           }
         }
       }
@@ -573,25 +590,28 @@ void expandBlockMap(unsigned short change, char Dir){
   else if(Dir == 'f' || Dir == 'b'){
     for(short x = 0; x < mapW; x++){
       for(short z = 0; z < mapH; z++){
-        map[x][z] = realloc(map[x][z],mapD * sizeof(struct block));
         for(short y = tempD; y < mapD; y++){
-          map[x][z][y].type = 0;
-          map[x][z][y].value = 0;
-          map[x][z][y].relDir = 0;
+          int index = getIndex(x,z,y);
+          map[index].type = 0;
+          map[index].value = 0;
+          map[index].relDir = 0;
         }
         //shift data
         if(Dir == 'b'){
           unsigned short shift_Amt = mapD - tempD;
           for(short y = mapD - 1; y >= shift_Amt; y--){
-            map[x][z][y].type = map[x][z][y-shift_Amt].type;
-            map[x][z][y].value = map[x][z][y-shift_Amt].value;
-            map[x][z][y].relDir = map[x][z][y-shift_Amt].relDir;
+            int dest_index = getIndex(x,z,y);
+            int orig_index = getIndex(x,z,y-shift_Amt);
+            map[dest_index].type = map[orig_index].type;
+            map[dest_index].value = map[orig_index].value;
+            map[dest_index].relDir = map[orig_index].relDir;
           }
           //0 the data unshifted
           for(short y = shift_Amt - 1; y >= 0; y--){
-            map[x][z][y].type = 0;
-            map[x][z][y].value = 0;
-            map[x][z][y].relDir = 0;
+            int index = getIndex(x,z,y);
+            map[index].type = 0;
+            map[index].value = 0;
+            map[index].relDir = 0;
           }
         }
       }
@@ -656,10 +676,11 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
   //in memory
   struct extents selExt = getAllSelExtents();
 
-  for(short i = selExt.r; i <= selExt.l; i++){
-    for(short j = selExt.d; j <= selExt.u; j++){
-      for(short k = selExt.b; k <= selExt.f; k++){
-        if(blockLookup(typeA) == map[i][j][k].type){
+  for(short x = selExt.r; x <= selExt.l; x++){
+    for(short z = selExt.d; z <= selExt.u; z++){
+      for(short y = selExt.b; y <= selExt.f; y++){
+        int index = getIndex(x,z,y);
+        if(blockLookup(typeA) == map[index].type){
           struct block B;
           B.relDir = '\0';
           B.type = blockLookup(typeB);
@@ -667,8 +688,8 @@ void replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specifi
           B.value = valueB;
           else
           B.value = 0;
-          if((specificA && valueA == map[i][j][k].value) || !specificA){
-            map[i][j][k] = B;
+          if((specificA && valueA == map[index].value) || !specificA){
+            map[index] = B;
           }
         }
       }
@@ -693,10 +714,11 @@ void setBlock(struct block B, _Bool wait){
   //in memory
   struct extents selExt = getAllSelExtents();
 
-  for(short i = selExt.r; i <= selExt.l; i++){
-    for(short j = selExt.d; j <= selExt.u; j++){
-      for(short k = selExt.b; k <= selExt.f; k++){
-        map[i][j][k] = B;
+  for(short x = selExt.r; x <= selExt.l; x++){
+    for(short z = selExt.d; z <= selExt.u; z++){
+      for(short y = selExt.b; y <= selExt.f; y++){
+        int index = getIndex(x,z,y);
+        map[index] = B;
       }
     }
   }
@@ -713,19 +735,22 @@ void overlay(char* type, unsigned char value){
   //in memory
   struct extents selExt = getAllSelExtents();
 
-  for(short i = selExt.r; i <= selExt.l; i++){
-    for(short k = selExt.b; k <= selExt.f; k++){
-      for(short j = selExt.u; j >= selExt.d; j--){ //height last
+  for(short x = selExt.r; x <= selExt.l; x++){
+    for(short y = selExt.b; y <= selExt.f; y++){
+      for(short z = selExt.u; z >= selExt.d; z--){ //height last
 
-        //get block
-        struct block B;
-        B.type = blockLookup(type);
-        B.value = value;
-        B.relDir = '\0';
+        int origin = getIndex(x,z,y);
 
         //only fill in air and the block under it is not air
-        if(map[i][j][k].type != 0){
-          map[i][j + 1][k] = B; //place block
+        if(map[origin].type != 0){
+          //get block
+          struct block B;
+          B.type = blockLookup(type);
+          B.value = value;
+          B.relDir = '\0';
+
+          int above = getIndex(x,z+1,y);
+          map[above] = B; //place block
           break; //only place 1 block per xz coordinate (only the top portion of the selected blocks)
         }
       }
@@ -756,52 +781,58 @@ void shift(unsigned short amount,char Dir){
   }
 }
 
-struct block*** copySel(){
+struct block* copySel(){
   struct extents selExt = getAllSelExtents();
-  struct block*** ret = malloc(selW * sizeof(struct block**));
-  for(short i = selExt.r; i <= selExt.l; i++){
-    ret[i-selExt.r] = malloc(selH * sizeof(struct block*));
-    for(short j = selExt.d; j <= selExt.u; j++){
-      ret[i-selExt.r][j-selExt.d] = malloc(selD * sizeof(struct block));
-      for(short k = selExt.b; k <= selExt.f; k++){
+  struct block* ret = malloc(selW * selH * selD * sizeof(struct block));
+  for(short x = selExt.r; x <= selExt.l; x++){
+    for(short z = selExt.d; z <= selExt.u; z++){
+      for(short y = selExt.b; y <= selExt.f; y++){
+        int orig_index = getIndex(x,z,y);
+        int dest_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
+
         //get blocks, the right blocks and put them right in the right location
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].type = map[i][j][k].type;
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].value = map[i][j][k].value;
-        ret[i-selExt.r][j-selExt.d][k-selExt.b].relDir = map[i][j][k].relDir;
+        ret[dest_index].type = map[orig_index].type;
+        ret[dest_index].value = map[orig_index].value;
+        ret[dest_index].relDir = map[orig_index].relDir;
 
         //remove old block
-        map[i][j][k].type = 0;
-        map[i][j][k].value = 0;
-        map[i][j][k].relDir = '\0';
+        map[orig_index].type = 0;
+        map[orig_index].value = 0;
+        map[orig_index].relDir = '\0';
       }
     }
   }
   return ret;
 }
 
-void pasteSel(struct block*** arg,short amount, char Dir){
+void pasteSel(struct block* arg,short amount, char Dir){
 
   struct extents selExt = getAllSelExtents();
 
-  for(short i = selExt.r; i <= selExt.l; i++){
-    for(short j = selExt.d; j <= selExt.u; j++){
-      for(short k = selExt.b; k <= selExt.f; k++){
+  for(short x = selExt.r; x <= selExt.l; x++){
+    for(short z = selExt.d; z <= selExt.u; z++){
+      for(short y = selExt.b; y <= selExt.f; y++){
 
         //calculate new position of block. Keep unchanged coordinates the same with default values
-        unsigned short blockBX = i;
-        unsigned short blockBY = j;
-        unsigned short blockBZ = k;
+        unsigned short blockBX = x;
+        unsigned short blockBZ = z;
+        unsigned short blockBY = y;
 
         switch (Dir) { //must only movve in one direction
           case 'l': blockBX += amount; break;
-          case 'u': blockBY += amount; break;
-          case 'f': blockBZ += amount; break;
+          case 'u': blockBZ += amount; break;
+          case 'f': blockBY += amount; break;
           case 'r': blockBX -= amount; break;
-          case 'd': blockBY -= amount; break;
-          case 'b': blockBZ -= amount; break;
+          case 'd': blockBZ -= amount; break;
+          case 'b': blockBY -= amount; break;
         }
+
+        //indexes
+        int orig_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
+        int dest_index = getIndex(blockBX,blockBZ,blockBY);
+
         //place block
-        map[blockBX][blockBY][blockBZ] = arg[i-selExt.r][j-selExt.d][k-selExt.b];
+        map[dest_index] = arg[orig_index];
       }
     }
   }
@@ -824,18 +855,11 @@ void move(unsigned short amount,_Bool shift, char Dir){
 
   //in memory
 
-  struct block*** temp = copySel();
+  struct block* temp = copySel();
   //although these forloops are identical i must run through them twice or els ill run into undisiered effects of the blocks being moved multiple times
   pasteSel(temp,amount,Dir);
 
   //free the copy
-  struct extents selExt = getAllSelExtents();
-  for(short i = selExt.r; i <= selExt.l; i++){
-    for(short j = selExt.d; j <= selExt.u; j++){
-      free(temp[i-selExt.r][j-selExt.d]);
-    }
-    free(temp[i-selExt.r]);
-  }
   free(temp);
 
   //shift after operation
@@ -909,9 +933,12 @@ void stack(short amount,char Dir, char* options){
               case 'b': blockBZ -= selD * (p+1); break;
             }
 
+            int orig_index = getIndex(i,j,k);
+            int dest_index = getIndex(blockBX,blockBY,blockBZ);
+
             //new block = old block
-            if(!preserveAir || !map[i][j][k].type == 0){
-              map[blockBX][blockBY][blockBZ] = map[i][j][k];
+            if(!preserveAir || !map[orig_index].type == 0){
+              map[dest_index] = map[orig_index];
             }
           }
         }
@@ -1382,8 +1409,9 @@ void line(char* type, unsigned char value){
           B.value = value;
           B.relDir = '\0';
 
+          int index = getIndex(i,j,k);
           //place block at point c
-          map[i][j][k] = B;
+          map[index] = B;
         }
       }
     }
@@ -1422,10 +1450,11 @@ void delete(){
     for(short j = selExt.d; j <= selExt.u; j++){
       for(short k = selExt.b; k <= selExt.f; k++){
 
+        int index = getIndex(i,j,k);
         // printf("%i %i %i > %i %i\n",blockX,blockY,blockZ,B.type,B.value);
-        map[i][j][k].type = 0;
-        map[i][j][k].value = 0;
-        map[i][j][k].relDir = '\0';
+        map[index].type = 0;
+        map[index].value = 0;
+        map[index].relDir = '\0';
       }
     }
   }
@@ -2159,7 +2188,6 @@ struct buss buildStables(struct buss roundKey, char Dir,char stSide){
   //terminate key
   freeBuss(roundKey);
 
-
   ret.loc.direction = oppDir(Dir);
   ret.loc.stSide = stSide;
   ret.name = "Stable Results";
@@ -2346,7 +2374,6 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
 
   char Dir = arg.loc.direction;
 
-
   unsigned char width = arg.width;
   for(unsigned char i = 0; i < width; i++){
 
@@ -2354,7 +2381,9 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
     char opp_Stside = oppDir(arg.loc.stSide);
 
     if(type){
+
       if(i == 0){
+
         tower(distance,up,arg.collors[0]);
 
         flipFlop(Dir);
@@ -2669,6 +2698,7 @@ _Bool solid(char type){
 
 struct redShape getRedStoneShape(short x, short z, short y){
 
+
   _Bool lastX = (x == mapW - 1);
   _Bool frstX = (x == 0);
   _Bool lastZ = (z == mapH - 1);
@@ -2676,31 +2706,31 @@ struct redShape getRedStoneShape(short x, short z, short y){
   _Bool lastY = (y == mapD - 1);
   _Bool frstY = (y == 0);
 
-  _Bool L = !lastX && redType(map[x+1][z][y].type);
-  _Bool R = !frstX && redType(map[x-1][z][y].type);
-  _Bool F = !lastY && redType(map[x][z][y+1].type);
-  _Bool B = !frstY && redType(map[x][z][y-1].type);
+  _Bool L = !lastX && redType(map[getIndex(x+1,z,y)].type);
+  _Bool R = !frstX && redType(map[getIndex(x-1,z,y)].type);
+  _Bool F = !lastY && redType(map[getIndex(x,z,y+1)].type);
+  _Bool B = !frstY && redType(map[getIndex(x,z,y-1)].type);
 
-  _Bool U = !lastZ && solid(map[x][z+1][y].type);
+  _Bool U = !lastZ && solid(map[getIndex(x,z+1,y)].type);
 
   unsigned char redstoneID = blockLookup("redstone");
 
-  _Bool LU = !lastZ && !lastX && map[x+1][z+1][y].type == redstoneID && !U;
-  _Bool RU = !lastZ && !frstX && map[x-1][z+1][y].type == redstoneID && !U;
-  _Bool FU = !lastZ && !lastY && map[x][z+1][y+1].type == redstoneID && !U;
-  _Bool BU = !lastZ && !frstY && map[x][z+1][y-1].type == redstoneID && !U;
+  _Bool LU = !lastZ && !lastX && map[getIndex(x+1,z+1,y)].type == redstoneID && !U;
+  _Bool RU = !lastZ && !frstX && map[getIndex(x-1,z+1,y)].type == redstoneID && !U;
+  _Bool FU = !lastZ && !lastY && map[getIndex(x,z+1,y+1)].type == redstoneID && !U;
+  _Bool BU = !lastZ && !frstY && map[getIndex(x,z+1,y-1)].type == redstoneID && !U;
 
-  _Bool LD = !lastX && !frstZ && map[x+1][z-1][y].type == redstoneID && !solid(map[x+1][z][y].type);
-  _Bool RD = !frstX && !frstZ && map[x-1][z-1][y].type == redstoneID && !solid(map[x-1][z][y].type);
-  _Bool FD = !frstZ && !lastY && map[x][z-1][y+1].type == redstoneID && !solid(map[x][z][y+1].type);
-  _Bool BD = !frstZ && !frstY && map[x][z-1][y-1].type == redstoneID && !solid(map[x][z][y-1].type);
+  _Bool LD = !lastX && !frstZ && map[getIndex(x+1,z-1,y)].type == redstoneID && !solid(map[getIndex(x+1,z,y)].type);
+  _Bool RD = !frstX && !frstZ && map[getIndex(x-1,z-1,y)].type == redstoneID && !solid(map[getIndex(x-1,z,y)].type);
+  _Bool FD = !frstZ && !lastY && map[getIndex(x,z-1,y+1)].type == redstoneID && !solid(map[getIndex(x,z,y+1)].type);
+  _Bool BD = !frstZ && !frstY && map[getIndex(x,z-1,y-1)].type == redstoneID && !solid(map[getIndex(x,z,y-1)].type);
 
   struct redShape ret;
 
-  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !lastX && solid(map[x+1][z][y].type));
-  ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[x-1][z][y].type));
-  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !lastY && solid(map[x][z][y+1].type));
-  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstY && solid(map[x][z][y-1].type));
+  ret.extend[0] = L || LU || LD || ((RU || RD || R) && !lastX && solid(map[getIndex(x+1,z,y)].type));
+  ret.extend[1] = R || RU || RD || ((LU || LD || L) && !frstX && solid(map[getIndex(x-1,z,y)].type));
+  ret.extend[2] = F || FU || FD || ((BU || BD || B) && !lastY && solid(map[getIndex(x,z,y+1)].type));
+  ret.extend[3] = B || BU || BD || ((FU || FD || F) && !frstY && solid(map[getIndex(x,z,y-1)].type));
 
   ret.extend[4] = LU;
   ret.extend[5] = RU;
@@ -2749,18 +2779,20 @@ unsigned char numerateDir(char Dir){
 
 struct subVoxelPack getsubVoxels(short x, short z, short y){
 
-  unsigned char type = map[x][z][y].type;
-  unsigned char value = map[x][z][y].value;
-  char Dir = map[x][z][y].relDir;
+  int index = getIndex(x,z,y);
+
+  unsigned char type = map[index].type;
+  unsigned char value = map[index].value;
+  char Dir = map[index].relDir;
 
   char adjacent[6];
 
-  adjacent[0] = (x == mapW - 1? 0 : map[x + 1][z][y].type);
-  adjacent[1] = (x == 0? 0 : map[x - 1][z][y].type);
-  adjacent[2] = (y == mapD - 1? 0 : map[x][z][y + 1].type);
-  adjacent[3] = (y == 0? 0 : map[x][z][y - 1].type);
-  adjacent[4] = (z == mapH - 1? 0 : map[x][z + 1][y].type);
-  adjacent[5] = (z == 0? 0 : map[x][z - 1][y].type);
+  adjacent[0] = (x == mapW - 1? 0 : map[getIndex(x + 1,z,y)].type);
+  adjacent[1] = (x == 0? 0 : map[getIndex(x - 1,z,y)].type);
+  adjacent[2] = (y == mapD - 1? 0 : map[getIndex(x,z,y + 1)].type);
+  adjacent[3] = (y == 0? 0 : map[getIndex(x,z,y - 1)].type);
+  adjacent[4] = (z == mapH - 1? 0 : map[getIndex(x,z + 1,y)].type);
+  adjacent[5] = (z == 0? 0 : map[getIndex(x,z - 1,y)].type);
 
   struct subVoxelPack ret;
 
@@ -3067,9 +3099,10 @@ void buildWaveFront(){
   for(short x = 0; x < mapW; x++){
     for(short z = 0; z < mapH; z++){
       for(short y = 0; y < mapD; y++){
-        if(map[x][z][y].type != 0){
-          char type = map[x][z][y].type;
-          unsigned char data = map[x][z][y].value;
+        int index = getIndex(x,z,y);
+        if(map[index].type != 0){
+          char type = map[index].type;
+          unsigned char data = map[index].value;
 
           struct subVoxelPack voxPack;
 
@@ -3147,13 +3180,6 @@ struct buss createTestBuss(char* name,unsigned char width,char direction, char s
 
 void freeBlockMap(){
   printf("free W%i D%i H%i %lu \n",mapW,mapD,mapH,mapW*mapD*mapH * sizeof(struct block));
-  for(short i = 0; i < mapW; i++){
-    for(short j = 0; j < mapH; j++){
-      free(map[i][j]);
-    }
-    free(map[i]);
-    showProgress(i,mapW,"freeing block map");
-  }
   free(map);
   printf("free(bMap.map);\n");
 }
@@ -3759,9 +3785,7 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
 int main(){
 
   //memory allocation
-  map = malloc(mapW * sizeof(struct block**));
-  map[0] = malloc(mapH * sizeof(struct block*));
-  map[0][0] = malloc(mapD * sizeof(struct block));
+  map = malloc(sizeof(struct block));
 
   // for(int i = 0; i < 10; i++){
   //   for(int j = 0; j < 10; j++){
