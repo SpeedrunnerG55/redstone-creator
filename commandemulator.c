@@ -489,6 +489,11 @@ void expandBlockMap(unsigned short change, char Dir){
   else if(Dir == 'f' || Dir == 'b')//if the direction is forward or backward the map will get shallower
   mapD = abs(mapYB - mapYA) + 1;
 
+  //adjust selection for shift
+  if(Dir == 'r'){ selXA += change; selXB += change; mapXA += change; mapXB += change; }
+  if(Dir == 'd'){ selZA += change; selZB += change; mapZA += change; mapZB += change; }
+  if(Dir == 'b'){ selYA += change; selYB += change; mapYA += change; mapYB += change; }
+
   //memory allocation
   if(Dir == 'r' || Dir == 'l'){
     map = realloc(map,mapW * sizeof(struct block**));
@@ -523,13 +528,7 @@ void expandBlockMap(unsigned short change, char Dir){
         }
       }
     }
-    if(Dir == 'r'){
-      //adjust selection for shift
-      selXA += change;
-      selXB += change;
-      mapXA += change;
-      mapXB += change;
-    }
+
   }
 
   else if(Dir == 'u' || Dir == 'd'){
@@ -561,13 +560,6 @@ void expandBlockMap(unsigned short change, char Dir){
       }
       showProgress(x,mapW,"allocating memory for new z's");
     }
-    if(Dir == 'd'){
-      //adjust selection for shift
-      selZA += change;
-      selZB += change;
-      mapZA += change;
-      mapZB += change;
-    }
   }
 
   else if(Dir == 'f' || Dir == 'b'){
@@ -597,13 +589,7 @@ void expandBlockMap(unsigned short change, char Dir){
       showProgress(x,mapW,"allocating memory for new y's");
     }
   }
-  if(Dir == 'b'){
-    //adjust selection for shift
-    selYA += change;
-    selYB += change;
-    mapYA += change;
-    mapYB += change;
-  }
+
 }
 
 void checkAndExpand(unsigned short distance,char Dir){
@@ -3753,6 +3739,12 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
   return ret;
 }
 
+void runTest(){
+  wire(7,4,4,40,'f');
+  wire(7,4,4,40,'l');
+  buildImmages();
+}
+
 int main(){
 
   //memory allocation
@@ -3760,72 +3752,15 @@ int main(){
   map[0] = malloc(mapH * sizeof(struct block*));
   map[0][0] = malloc(mapD * sizeof(struct block));
 
-  // for(int i = 0; i < 10; i++){
-  //   for(int j = 0; j < 10; j++){
-  //     for(int k = 0; k < 10; k++){
-  //       show3dProgress(i,j,k,10,10,10);
-  //     }
-  //   }
-  // }
-  // printf("\n");
 
-  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-
-  // unsigned char rounds = 5;
+  // struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
   //
-  // for(int i = 0; i < rounds; i++){
-  //   struct buss* block = allocateBlock();
-  //   buildRound(createTestBuss("TEST_1",48,'r','b'),block);
-  //   showProgress(i,rounds,"Building DES round");
+  // for(int i = 0; i < 4; i++){\
+  //   freeBuss(keys.encrypt[i]);
+  //   freeBuss(keys.decrypt[i]);
   // }
 
-  // setKeySchedual();
-
-  struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
-
-  for(int i = 0; i < 4; i++){\
-    freeBuss(keys.encrypt[i]);
-    freeBuss(keys.decrypt[i]);
-  }
-
-  // buildOutput(32,'l','b');
-
-  // for(int i = 0; i < 4; i++){
-  //   setRepeater('f',i);
-  //   shift(2,'l');
-  //   setRepeater('b',i);
-  //   shift(2,'l');
-  //   setRepeater('l',i);
-  //   shift(2,'l');
-  //   setRepeater('r',i);
-  //   shift(2,'f');
-  //   shift(6,'r');
-  // }
-
-  // buildStables(Test,'r','b');
-
-  // buildOutLines(7,4,'f','b','l');
-
-
-  // Test = turnBuss(Test,'r',1,2);
-  // Test = bussStraight(Test,3);
-  // Test = turnBuss(Test,'r',1,2);
-
-  // Test = bussFlipFlop(Test);
-
-
-  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-
-  // bussTap(Test,'l');
-
-  // setKeySchedual();
-
-  // Test = turnBuss(Test,'l',1,2,'u');
-
-  // buildMaterialLibrary();
-  // buildWaveFront();
-  buildImmages();
-  // printFileBuffer(script);
+  runTest();
 
   free(script);
   //end portion of main (freeing and closing pointers)
