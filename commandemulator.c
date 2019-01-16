@@ -3803,10 +3803,9 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
   return ret;
 }
 
-
 void runTest(){
   wire(7,4,4,40,'f');
-  wire(7,4,4,40,'r');
+  wire(7,4,4,40,'l');
   buildImmages();
 }
 
@@ -3815,7 +3814,7 @@ int main(){
   //memory allocation
   map = malloc(sizeof(struct block));
 
-
+  runTest();
 
   free(script);
   //end portion of main (freeing and closing pointers)
