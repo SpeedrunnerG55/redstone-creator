@@ -8,7 +8,6 @@ unsigned char PC1[56] = {
   14,6,61,53,45,37,29,
   21,13,5,28,20,12,4
 };
-unsigned char PC1Length = 56;
 
 unsigned char PC2[48] = {
   14,17,11,24,1, 5,
@@ -20,7 +19,6 @@ unsigned char PC2[48] = {
   44,49,39,56,34,53,
   46,42,50,36,29,32
 };
-unsigned char PC2Length = 48;
 
 unsigned char E[48] = {
   32,1, 2, 3, 4, 5,
@@ -32,7 +30,6 @@ unsigned char E[48] = {
   24,25,26,27,28,29,
   28,29,30,31,32,1
 };
-unsigned char ELength = 48;
 
 unsigned char P[32] = {
   16,7, 20,21,29,12,28,17,
@@ -40,7 +37,6 @@ unsigned char P[32] = {
   2, 8, 24,14,32,27,3, 9,
   19,13,30,6, 22,11,4, 25
 };
-unsigned char PLength = 32;
 
 unsigned char IP[64] = {
   58,50,42,34,26,18,10,2,
@@ -52,7 +48,6 @@ unsigned char IP[64] = {
   61,53,45,37,29,21,13,5,
   63,55,47,39,31,23,15,7
 };
-unsigned char IPLength = 64;
 
 unsigned char IPInv[64] = {
   40,8,48,16,56,24,64,32,
