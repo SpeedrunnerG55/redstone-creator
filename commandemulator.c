@@ -219,7 +219,7 @@ struct point{
 short mapW = 1,mapH = 1,mapD = 1;
 
 int getIndex(short x, short z, short y){
-  return x*mapH + z*mapD + y;
+  return (x*mapH + z)*mapD + y;
 }
 
 //teh extent of the canvas as a function of 2 of its corners
@@ -468,6 +468,38 @@ void updateSelDementions(char Dir){
   selD = (*getSelExtent('f') - *getSelExtent('b')) + 1;
 }
 
+void printMap(){
+  printf("1d map unrolled \n");
+  for(int i = 0; i < mapW * mapH * mapD; i++){
+    if(map[i].type != 0)
+    printf("%3i,",map[i].type);
+    else
+    printf("%3s,","");
+  }
+  printf("\n");
+
+  printf("map rolled up and viewed from above, in sequential sclices\n");
+  printf("from the bottom to the top\n");
+
+  for(short z = 0; z < mapH; z++){
+    for(short y = mapD - 1; y >=0; y--){
+      for(short x = mapW - 1; x >= 0; x--){
+        int index = getIndex(x,z,y);
+        if(map[index].type != 0)
+        printf("%3i,",map[index].type);
+        else
+        printf("%3s,","");
+      }
+      printf("\n");
+    }
+    printf("# SLICE %2i #",z);
+    for(short x = mapW - 4; x >= 0; x--){
+      printf("####");
+    }
+    printf("\n");
+  }
+}
+
 //allocate more memory
 void expandBlockMap(unsigned short change, char Dir){
 
@@ -489,9 +521,10 @@ void expandBlockMap(unsigned short change, char Dir){
   unsigned short tempH = mapH;
   unsigned short tempD = mapD;
 
-  buildImmages();
-  printf("%s\n","before realloc");
-  getchar();
+  //adjust selection for shift
+  if(Dir == 'r'){ selXA += change; selXB += change; mapXA += change; mapXB += change; }
+  if(Dir == 'd'){ selZA += change; selZB += change; mapZA += change; mapZB += change; }
+  if(Dir == 'b'){ selYA += change; selYB += change; mapYA += change; mapYB += change; }
 
   //calculate the highth the selW and the breadth...
   if(Dir == 'r' || Dir == 'l')//if the direction is left or right the map will get thinner
@@ -500,26 +533,6 @@ void expandBlockMap(unsigned short change, char Dir){
   mapH = abs(mapZB - mapZA) + 1;
   else if(Dir == 'f' || Dir == 'b')//if the direction is forward or backward the map will get shallower
   mapD = abs(mapYB - mapYA) + 1;
-
-  //adjust selection for shift
-  if(Dir == 'r'){
-    selXA += change;
-    selXB += change;
-    mapXA += change;
-    mapXB += change;
-  }
-  else if(Dir == 'd'){
-    selZA += change;
-    selZB += change;
-    mapZA += change;
-    mapZB += change;
-  }
-  else if(Dir == 'b'){
-    selYA += change;
-    selYB += change;
-    mapYA += change;
-    mapYB += change;
-  }
 
   //1 realloc to rule them all
   map = realloc(map,mapW * mapH * mapD * sizeof(struct block));
@@ -561,7 +574,6 @@ void expandBlockMap(unsigned short change, char Dir){
         }
       }
     }
-
   }
 
   else if(Dir == 'u' || Dir == 'd'){
@@ -596,7 +608,6 @@ void expandBlockMap(unsigned short change, char Dir){
       }
       showProgress(x,mapW,"allocating memory for new z's");
     }
-
   }
 
   else if(Dir == 'f' || Dir == 'b'){
@@ -628,12 +639,6 @@ void expandBlockMap(unsigned short change, char Dir){
       showProgress(x,mapW,"allocating memory for new y's");
     }
   }
-
-
-  buildImmages();
-  printf("%s\n","after realloc");
-  getchar();
-
 }
 
 void checkAndExpand(unsigned short distance,char Dir){
@@ -916,10 +921,6 @@ void stack(short amount,char Dir, char* options){
 
     //check shifted region
     checkAndExpand(shift,Dir);
-
-    buildImmages();
-    printf("%s\n","expand");
-    getchar();
 
     //get extents
     struct extents selExt = getAllSelExtents();
@@ -1297,23 +1298,9 @@ unsigned char wire(short inStrength,unsigned char outToll, unsigned char value, 
   short outStrength = inStrength - amount;
   //support structure for redstone
   setBlock(B,1);
-
-  buildImmages();
-  printf("%s\n","place block");
-  getchar();
-
   stack(amount,Dir,"");
-
-  buildImmages();
-  printf("%s\n","stack");
-  getchar();
-
   //shift up to do redstone
   shift(1,'u');
-
-  buildImmages();
-  printf("%s\n","shift(1,'u');");
-  getchar();
 
   //check to see if the wire is longer than the input strength
   //if so it is safe to place the first repeater where the signal ends
@@ -3808,9 +3795,11 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
   return ret;
 }
 
+
 void runTest(){
-  wire(7,4,4,40,'f');
-  wire(7,4,4,40,'l');
+  wire(7,4,4,10,'f');
+  wire(7,4,4,10,'l');
+  printMap();
   buildImmages();
   buildMaterialLibrary();
   buildWaveFront();
