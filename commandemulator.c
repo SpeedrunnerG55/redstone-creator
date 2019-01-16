@@ -4,7 +4,6 @@
 #include <math.h>
 #include "tables.h"
 
-
 /*
 more of a quality of life
 feature to keep track of
@@ -3804,87 +3803,19 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
   return ret;
 }
 
+
+void runTest(){
+  wire(7,4,4,40,'f');
+  wire(7,4,4,40,'r');
+  buildImmages();
+}
+
 int main(){
 
   //memory allocation
   map = malloc(sizeof(struct block));
-  struct block B;
-  B.relDir = '\0';
-  B.type = blockLookup("air");
-  B.value = 0;
-  setBlock(B,1);
-
-  // for(int i = 0; i < 10; i++){
-  //   for(int j = 0; j < 10; j++){
-  //     for(int k = 0; k < 10; k++){
-  //       show3dProgress(i,j,k,10,10,10);
-  //     }
-  //   }
-  // }
-  // printf("\n");
-
-  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-
-  // unsigned char rounds = 5;
-  //
-  // for(int i = 0; i < rounds; i++){
-  //   struct buss* block = allocateBlock();
-  //   buildRound(createTestBuss("TEST_1",48,'r','b'),block);
-  //   showProgress(i,rounds,"Building DES round");
-  // }
-
-  // setKeySchedual();
-
-  // struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
-  //
-  // for(int i = 0; i < 4; i++){
-  //   freeBuss(keys.encrypt[i]);
-  //   freeBuss(keys.decrypt[i]);
-  // }
-
-  // buildOutput(32,'l','b');
-
-  // for(int i = 0; i < 4; i++){
-  //   setRepeater('f',i);
-  //   shift(2,'l');
-  //   setRepeater('b',i);
-  //   shift(2,'l');
-  //   setRepeater('l',i);
-  //   shift(2,'l');
-  //   setRepeater('r',i);
-  //   shift(2,'f');
-  //   shift(6,'r');
-  // }
-
-  // buildStables(Test,'r','b');
-
-  // buildOutLines(7,4,'f','b','l');
 
 
-  // Test = turnBuss(Test,'r',1,2);
-  // Test = bussStraight(Test,3);
-  // Test = turnBuss(Test,'r',1,2);
-
-  // Test = bussFlipFlop(Test);
-
-
-  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
-
-  // bussTap(Test,'l');
-
-  // setKeySchedual();
-
-  // Test = turnBuss(Test,'l',1,2,'u');
-
-
-  shift(19,'r');
-  wire(5,3,7,70,'f');
-
-
-  buildMaterialLibrary();
-  buildWaveFront();
-  buildImmages();
-  // printFileBuffer(script);
 
   free(script);
   //end portion of main (freeing and closing pointers)
