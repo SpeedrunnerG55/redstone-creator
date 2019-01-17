@@ -219,7 +219,11 @@ struct point{
 short mapW = 1,mapH = 1,mapD = 1;
 
 int getIndex(short x, short z, short y){
-  return (x*mapH + z)*mapD + y;
+  return  (z * mapD + y) * mapW + x ;
+}
+
+int getSubIndex(short x, short z, short y, short subW, short subD){
+  return  (z * subD + y) * subW + x ;
 }
 
 //teh extent of the canvas as a function of 2 of its corners
@@ -468,23 +472,29 @@ void updateSelDementions(char Dir){
   selD = (*getSelExtent('f') - *getSelExtent('b')) + 1;
 }
 
-void printMap(){
-  printf("1d map unrolled \n");
-  for(int i = 0; i < mapW * mapH * mapD; i++){
-    if(map[i].type != 0)
-    printf("%3i,",map[i].type);
-    else
-    printf("%3s,","");
+void printMap(_Bool line){
+  if(line){
+    printf("1d map unrolled \n");
+    for(int i = 0; i < mapW * mapH * mapD; i++){
+
+      printf("%3i ",i);
+
+      // if(map[i].type != 0)
+      // printf("%3i,",map[i].type);
+      // else
+      // printf("%3s,","");
+    }
+    printf("\n");
   }
-  printf("\n");
 
   printf("map rolled up and viewed from above, in sequential sclices\n");
   printf("from the bottom to the top\n");
 
-  for(short z = 0; z < mapH; z++){
-    for(short y = mapD - 1; y >=0; y--){
+  for(short z = mapH - 1; z >= 0; z--){
+    for(short y = mapD - 1; y >= 0; y--){
       for(short x = mapW - 1; x >= 0; x--){
         int index = getIndex(x,z,y);
+        printf("%3i-",index);
         if(map[index].type != 0)
         printf("%3i,",map[index].type);
         else
@@ -521,21 +531,28 @@ void expandBlockMap(unsigned short change, char Dir){
   unsigned short tempH = mapH;
   unsigned short tempD = mapD;
 
-  //adjust selection for shift
+  //adjust selection and map set points for shift
   if(Dir == 'r'){ selXA += change; selXB += change; mapXA += change; mapXB += change; }
   if(Dir == 'd'){ selZA += change; selZB += change; mapZA += change; mapZB += change; }
   if(Dir == 'b'){ selYA += change; selYB += change; mapYA += change; mapYB += change; }
 
   //calculate the highth the selW and the breadth...
-  if(Dir == 'r' || Dir == 'l')//if the direction is left or right the map will get thinner
-  mapW = abs(mapXB - mapXA) + 1;
-  else if(Dir == 'u' || Dir == 'd')//if the direction is up or down the map will get shorter
-  mapH = abs(mapZB - mapZA) + 1;
-  else if(Dir == 'f' || Dir == 'b')//if the direction is forward or backward the map will get shallower
-  mapD = abs(mapYB - mapYA) + 1;
+  if     (Dir == 'r' || Dir == 'l') mapW = abs(mapXB - mapXA) + 1;//if the direction is left or right the map will get thinner
+  else if(Dir == 'u' || Dir == 'd') mapH = abs(mapZB - mapZA) + 1;//if the direction is up or down the map will get shorter
+  else if(Dir == 'f' || Dir == 'b') mapD = abs(mapYB - mapYA) + 1;//if the direction is forward or backward the map will get shallower
 
   //1 realloc to rule them all
   map = realloc(map,mapW * mapH * mapD * sizeof(struct block));
+
+  // printf("%s %i %c new Nolume = %i \n","expand",change,Dir,mapW * mapH * mapD);
+
+  for(int i = 0; i < mapW * mapH * mapD; i++){
+    if(map[i].type == 190){
+      map[i].type = 0;
+      map[i].value = 0;
+      map[i].relDir = 0;
+    }
+  }
 
   //memory allocation
   if(Dir == 'r' || Dir == 'l'){
@@ -548,7 +565,6 @@ void expandBlockMap(unsigned short change, char Dir){
           map[index].relDir = 0;
         }
       }
-      showProgress(x,mapW,"allocating memory for new x's");
     }
     //shift data
     if(Dir == 'r'){
@@ -606,7 +622,6 @@ void expandBlockMap(unsigned short change, char Dir){
           }
         }
       }
-      showProgress(x,mapW,"allocating memory for new z's");
     }
   }
 
@@ -636,7 +651,6 @@ void expandBlockMap(unsigned short change, char Dir){
           }
         }
       }
-      showProgress(x,mapW,"allocating memory for new y's");
     }
   }
 }
@@ -802,7 +816,7 @@ struct block* copySel(){
     for(short z = selExt.d; z <= selExt.u; z++){
       for(short y = selExt.b; y <= selExt.f; y++){
         int orig_index = getIndex(x,z,y);
-        int dest_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
+        int dest_index = getSubIndex(x-selExt.r,z-selExt.d,y-selExt.b,selW,selD);
 
         //get blocks, the right blocks and put them right in the right location
         ret[dest_index] = map[orig_index];
@@ -812,6 +826,7 @@ struct block* copySel(){
         map[orig_index].value = 0;
         map[orig_index].relDir = '\0';
       }
+      printf("\n");
     }
   }
   return ret;
@@ -840,7 +855,7 @@ void pasteSel(struct block* arg,short amount, char Dir){
         }
 
         //indexes
-        int orig_index = getIndex(x-selExt.r,z-selExt.d,y-selExt.b);
+        int orig_index = getSubIndex(x-selExt.r,z-selExt.d,y-selExt.b,selW,selD);
         int dest_index = getIndex(blockBX,blockBZ,blockBY);
 
         //place block
@@ -950,6 +965,7 @@ void stack(short amount,char Dir, char* options){
 
             //new block = old block
             if(!preserveAir || !map[orig_index].type == 0){
+              // printf("%i > %i-%i\n",map[orig_index].type,dest_index,map[dest_index].type);
               map[dest_index] = map[orig_index];
             }
           }
@@ -2453,41 +2469,6 @@ struct buss bussUp(_Bool type, struct buss arg, short distance, char up, _Bool f
   return arg;
 }
 
-unsigned char **rotateTable(unsigned char rows, unsigned char cols, unsigned char table[rows][cols],unsigned char rotations, unsigned char originaLength){
-
-  unsigned char** ret = malloc(rows * sizeof(unsigned char*));
-
-  for(unsigned char i = 0; i < rows; i++){
-    ret[i] = malloc(cols);
-  }
-
-  for(unsigned char i = 0; i < rows; i++){
-    for(unsigned char j = 0; j < cols; j++){
-      ret[i][j] = table[i][j];
-    }
-  }
-
-  short start[2] = {rows - 1,(rows/2) - 1};
-  short end[2] = {rows / 2,0};
-
-  short outLimmitstart[2] = {(originaLength/2) + 1,1};
-  short outLimmitend[2] = {originaLength + 1,(originaLength/2) + 1};
-
-  for(unsigned char k = 0; k < rotations; k++){
-    for(short side = 0; side < 2; side++){
-      for(short i = start[side]; i >= end[side]; i--){
-        for(short j = cols - 1; j >= 0; j--){
-          ret[i][j]++;
-          if(ret[i][j] >= outLimmitend[side])
-          ret[i][j] = outLimmitstart[side];
-        }
-      }
-    }
-  }
-
-  return ret;
-}
-
 struct keySchedual{
   struct buss roundKeys[16];
 };
@@ -3797,12 +3778,22 @@ struct DESKeys buildRoundKeyBuss(struct keySchedual keySchedual){
 
 
 void runTest(){
-  wire(7,4,4,10,'f');
-  wire(7,4,4,10,'l');
-  printMap();
-  buildImmages();
-  buildMaterialLibrary();
-  buildWaveFront();
+
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = 3;
+  B.relDir = '\0';
+
+  int height = 7;
+
+  for(int i = 0; i < height; i++){
+    B.value = i % 16;
+    setBlock(B,1);
+    stack(3,'f',"");
+    stack(6,'l',"");
+    if(i != height - 1)
+    shift(1,'u');
+  }
 }
 
 int main(){
@@ -3810,7 +3801,67 @@ int main(){
   //memory allocation
   map = malloc(sizeof(struct block));
 
-  runTest();
+  // runTest();
+
+  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
+
+  // unsigned char rounds = 5;
+  //
+  // for(int i = 0; i < rounds; i++){
+  //   struct buss* block = allocateBlock();
+  //   buildRound(createTestBuss("TEST_1",48,'r','b'),block);
+  //   showProgress(i,rounds,"Building DES round");
+  // }
+
+  // setKeySchedual();
+
+  // struct DESKeys keys = buildRoundKeyBuss(setKeySchedual());
+  // //
+  // for(int i = 0; i < 4; i++){
+  //   freeBuss(keys.encrypt[i]);
+  //   freeBuss(keys.decrypt[i]);
+  // }
+
+  buildOutput(2,'l','b');
+
+  // for(int i = 0; i < 4; i++){
+  //   setRepeater('f',i);
+  //   shift(2,'l');
+  //   setRepeater('b',i);
+  //   shift(2,'l');
+  //   setRepeater('l',i);
+  //   shift(2,'l');
+  //   setRepeater('r',i);
+  //   shift(2,'f');
+  //   shift(6,'r');
+  // }
+
+  // buildStables(Test,'r','b');
+
+  // buildOutLines(7,4,'f','b','l');
+
+
+  // Test = turnBuss(Test,'r',1,2);
+  // Test = bussStraight(Test,3);
+  // Test = turnBuss(Test,'r',1,2);
+
+  // Test = bussFlipFlop(Test);
+
+
+  // struct buss Test = createTestBuss("TEST_1",48,'r','b');
+
+  // bussTap(Test,'l');
+
+  // setKeySchedual();
+
+  // Test = turnBuss(Test,'l',1,2,'u');
+
+
+  // printMap(0);
+  buildMaterialLibrary();
+  buildWaveFront();
+  buildImmages();
+  // printFileBuffer(script);
 
   free(script);
   //end portion of main (freeing and closing pointers)
