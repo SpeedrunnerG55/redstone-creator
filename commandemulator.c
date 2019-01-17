@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "tables.h"
+#include "DES_tables.h"
 
 /*
 more of a quality of life
