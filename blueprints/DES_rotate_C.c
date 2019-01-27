@@ -1,7 +1,7 @@
 
 #include <stdio.h> //for console io
 #include <time.h> //for console io
-#include "tables.h"
+#include "DES_tables.h"
 #include <stdlib.h>
 #include <math.h>
 // #include <fstream>
@@ -57,84 +57,15 @@ unsigned long long charstodecimal(char key[8]){
 // }
 
 //what have i done...
-unsigned long long permute(unsigned long long original, unsigned char rows, unsigned char cols, unsigned char perm[rows][cols], unsigned char originaLength) {
-  unsigned char permLength = rows * cols;
+unsigned long long permute(unsigned char keyLength, unsigned long long key, unsigned char tableLength, unsigned char table[tableLength]) {
   unsigned long long ans = 0LL;
-  for (unsigned char i=0; i< rows; i++){
-    for (unsigned char j=0; j< cols; j++){
+  for (unsigned char i=0; i< tableLength; i++){
       //this monstrosity is one line
       ans |=
-      (original >> ((originaLength - perm[i][j]) % originaLength) & 1LL)  //move original one complete length then back to grap the perm[i]'th position' to grab that bit from it
-      << (permLength - (i * cols + j) - 1); //then move it back to the ith position of the result
-    }
+      (key >> ((keyLength - table[i]) % keyLength) & 1LL)  //move original one complete length then back to grap the perm[i]'th position' to grab that bit from it
+      << (tableLength - i - 1); //then move it back to the ith position of the result
   }
   return ans;
-}
-
-void showTables(unsigned char rows, unsigned char cols,unsigned char num_tables, unsigned char table[num_tables][rows][cols],char* name){
-
-  unsigned char boxWidth = sqrt(num_tables);
-
-  getchar();
-
-  for(int k = 0; k < boxWidth; k++){
-    for(int l = 0; l < boxWidth; l++){
-      printf("%-14s%-3i%6s",name,k * boxWidth + l,"");
-    }
-    printf("\n");
-    for(unsigned char i = 0; i < rows; i++){
-      for(int l = 0; l < boxWidth; l++){
-        for(unsigned char j = 0; j < cols; j++){
-          printf("%2i",table[k * boxWidth + l][i][j]);
-          // printf("0");
-          if(j < cols - 1)
-          printf(",");
-        }
-        if(i < rows - 1)
-        printf(",");
-        else
-        printf(" ");
-        printf("%5s","");
-      }
-      printf("\n");
-    }
-    printf("\n");
-  }
-}
-
-unsigned char **rotateTable(unsigned char rows, unsigned char cols, unsigned char table[rows][cols],unsigned char rotations, unsigned char originaLength){
-
-  unsigned char** ret = malloc(rows * sizeof(unsigned char*));
-
-  for(unsigned char i = 0; i < rows; i++){
-    ret[i] = malloc(cols);
-  }
-
-  for(unsigned char i = 0; i < rows; i++){
-    for(unsigned char j = 0; j < cols; j++){
-      ret[i][j] = table[i][j];
-    }
-  }
-
-  short start[2] = {rows - 1,(rows/2) - 1};
-  short end[2] = {rows / 2,0};
-
-  short outLimmitstart[2] = {(originaLength/2) + 1,1};
-  short outLimmitend[2] = {originaLength + 1,(originaLength/2) + 1};
-
-  for(unsigned char k = 0; k < rotations; k++){
-    for(short side = 0; side < 2; side++){
-      for(short i = start[side]; i >= end[side]; i--){
-        for(short j = cols - 1; j >= 0; j--){
-          ret[i][j]++;
-          if(ret[i][j] >= outLimmitend[side])
-          ret[i][j] = outLimmitstart[side];
-        }
-      }
-    }
-  }
-
-  return ret;
 }
 
 struct roundKeys{
@@ -188,26 +119,24 @@ struct roundKeys setKeys(unsigned long long key) {
 
   // Set the original key with PC1.
   //unsigned long long permute(unsigned long long original, int perm[], int permlength)
-  unsigned char PC1rows = sizeof(PC1) / sizeof(PC1[0]);
-  unsigned char PC1cols = sizeof(PC1[0]) / sizeof(PC1[0][0]);
-  key = permute(key,PC1rows,PC1cols,PC1,64);
+  unsigned char PC1Length = sizeof(PC1) / sizeof(PC1[0]);
+  key = permute(64,key,PC1Length,PC1);
 
   // Go through and set the round keys using the process by which they
   // are supposed to be computed.
-
-  unsigned char keyshifts[16] = {
-    1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1
-  };
 
   unsigned char rotations = 0;
 
   unsigned long long shift = key;
   unsigned long long rotate = key;
 
-  unsigned char PC2rows = sizeof(PC2) / sizeof(PC2[0]);
-  unsigned char PC2cols = sizeof(PC2[0]) / sizeof(PC2[0][0]);
+  unsigned char PC2Length = sizeof(PC2) / sizeof(PC2[0]);
 
-  unsigned char tableBox[16][PC2rows][PC2cols];
+  unsigned char rotated[PC2Length];
+
+  for(unsigned char j = 0; j < PC2Length; j++){
+    rotated[j] = PC2[j];
+  }
 
   for (int i=0; i<16; i++) {
 
@@ -218,26 +147,29 @@ struct roundKeys setKeys(unsigned long long key) {
       | (0x80000008000000 & shift) >> 27; //saves the bits that got cut off and then transposes the saved bit back to the correct position
     }
 
-    unsigned char ** heapRotated = rotateTable(PC2rows,PC2cols,PC2,rotations,56);
-    unsigned char rotated[PC2rows][PC2cols];
-    for(unsigned char j = 0; j < PC2rows; j++){
-      for(unsigned char k = 0; k < PC2cols; k++){
-        rotated[j][k] = heapRotated[j][k];
-        tableBox[i][j][k] = rotated[j][k];
+    short start[2] = {PC2Length - 1,(PC2Length/2) - 1};
+    short end[2] = {PC2Length / 2,0};
+
+    short outLimmitstart[2] = {(PC1Length/2) + 1,1};
+    short outLimmitend[2] = {PC1Length + 1,(PC1Length/2) + 1};
+
+    for(unsigned char k = 0; k < keyshifts[i]; k++){
+      for(short side = 0; side < 2; side++){
+        for(short i = start[side]; i >= end[side]; i--){
+          rotated[i]++;
+          if(rotated[i] >= outLimmitend[side])
+          rotated[i] = outLimmitstart[side];
+        }
       }
-      free(heapRotated[j]);
     }
-    free(heapRotated);
 
     // showTable(PC2rows,PC2cols,PC2,"original",0);
 
-    keys.shift[i] = permute(shift,PC2rows,PC2cols,PC2,56);
-    keys.rotate[i] = permute(rotate,PC2rows,PC2cols,rotated,56);
+    keys.shift[i] = permute(56,shift,PC2Length,PC2);
+    keys.rotate[i] = permute(56,rotate,PC2Length,rotated);
     // compareKeys(keys,i);
 
   }
-
-  showTables(PC2rows,PC2cols,16,tableBox,"table for key");
 
   return keys;
 }
@@ -248,15 +180,16 @@ unsigned long long Sboxes(unsigned long long input) {
 
   unsigned long long ans = 0;
 
-  for (int i=0; i<8; i++) {
+  for (unsigned char i=0; i<8; i++) {
 
     // printf("stables[%i][%llu][%llu]\n",i,(2 & input >> (46-(6*i)))|(1 & input >> (42-(6*i))),(0xF & input >> (43-(6*i))));
 
     ans |=
+    (unsigned long long) //cast to unsigned long long because the bits will get shifted a lot and the container needs to be big enough
     stables
     [i] //what box
     [(2 & input >> (46-(6*i)))|(1 & input >> (42-(6*i)))] //what row
-    [(0xF & input >> (43-(6*i)))] //what collumn
+    [(0xFLLU & input >> (43-(6*i)))] //what collumn
     << ((7 - i) << 2); //shifted to right place
   }
   return ans;
@@ -275,14 +208,11 @@ void round2(unsigned long long roundKey, unsigned long long *block) {
 
   //read ^ and not V
 
-  unsigned char Erows = sizeof(E) / sizeof(E[0]);
-  unsigned char Ecols = sizeof(E[0]) / sizeof(E[0][0]);
-
-  unsigned char Prows = sizeof(P) / sizeof(P[0]);
-  unsigned char Pcols = sizeof(P[0]) / sizeof(P[0][0]);
+  unsigned char ELength = sizeof(E) / sizeof(E[0]);
+  unsigned char PLength = sizeof(P) / sizeof(P[0]);
 
   *block = *block << 32 |
-  (*block >> 32 ^ permute(Sboxes(permute(0xFFFFFFFF & *block,Erows,Ecols,E,32) ^ roundKey),Prows,Pcols,P,32));
+  (*block >> 32 ^ permute(32,Sboxes(permute(32,0xFFFFFFFF & *block,ELength,E) ^ roundKey),PLength,P));
 }
 
 // does not work
@@ -290,9 +220,8 @@ void round2(unsigned long long roundKey, unsigned long long *block) {
 void encrypt(unsigned long long roundKeys[16], unsigned long long *block, _Bool encrypting) {
 
   // permute the block with the initial permutation.
-  unsigned char IProws = sizeof(IP) / sizeof(IP[0]);
-  unsigned char IPcols = sizeof(IP[0]) / sizeof(IP[0][0]);
-  *block = permute(*block,IProws,IPcols,IP,64);
+  unsigned char IPLength = sizeof(IP) / sizeof(IP[0]);
+  *block = permute(64,*block,IPLength,IP);
 
   //difference between encrypting and decrypting
   if(encrypting){
@@ -313,9 +242,8 @@ void encrypt(unsigned long long roundKeys[16], unsigned long long *block, _Bool 
   *block = (*block >> 32) | (*block << 32);
 
 
-  unsigned char IPInvrows = sizeof(IPInv) / sizeof(IPInv[0]);
-  unsigned char IPInvcols = sizeof(IPInv[0]) / sizeof(IPInv[0][0]);
-  *block = permute(*block,IPInvrows,IPInvcols,IPInv,64);
+  unsigned char IPInvLength = sizeof(IPInv) / sizeof(IPInv[0]);
+  *block = permute(64,*block,IPInvLength,IPInv);
 
 }
 

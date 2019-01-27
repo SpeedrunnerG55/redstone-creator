@@ -1,0 +1,72 @@
+$${
+SET(@#wire_complete,0);
+log(EXEC wire($$[1],$$[2],$$[3],$$[4],$$[5])...);
+#in_strength = $$[1];
+#out_toll    = $$[2];
+#value       = $$[3];
+#amount      = $$[4];
+&dir         = $$[5];
+if(&dir == "f");  &opp_dir = "b";
+  elseif(&dir == "b");  &opp_dir = "f";
+  elseif(&dir == "l");  &opp_dir = "r";
+  elseif(&dir == "r");  &opp_dir = "l";
+  else; log(Invalid direction received :%&dir%
+endif
+#pos = 0;
+#out_strength = #in_strength - #amount;
+log(//set wool:%#value%);
+echo(//set wool:%#value%);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+log(//stack %#amount% %&dir%);
+echo(//stack %#amount% %&dir%);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+echo(//shift 1 u);
+if((#in_strength < #amount) && (#out_strength < #out_toll));
+  log(NF TW //shift %#in_strength% %&dir%);
+  echo(//shift %#in_strength% %&dir%);
+  #pos = #pos + #in_strength;
+  EXEC(setr.txt,"setr","%&dir%",0); DO; UNTIL(@#setr_complete == 1); log(complete);
+  #out_strength = 16 + #pos - %#amount%;
+endif
+if((#amount - #in_strength - 1) >= 16);
+  log(F //shift 16 %&dir%);
+  echo(//shift 16 %&dir%);
+  EXEC(setr.txt,"setr","%&dir%",0); DO; UNTIL(@#setr_complete == 1); log(complete);
+  log(MF //expand 15 %&opp_dir%);
+  echo(//expand 15 %&opp_dir%);
+  #stack_amt = ((#amount - #in_strength) / 16) - 1;
+  log(//stack SA %#stack_amt% %&dir% -s);
+  echo(//stack %#stack_amt% %&dir% -s);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//contract 15 %&dir%);
+  #pos = #pos + ((#amount - #in_strength) / 16) * 16;
+  #out_strength = 16 + #pos - #amount;
+  if(((#amount - #in_strength) / 16) == 0)
+    log(TF //move 1 %&opp_dir%
+    echo(//move 1 %&opp_dir%
+    UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+    #out_strength = #out_strength - 1;
+  endif;
+endif;
+if(#out_strength < #out_toll)
+  #shift_amt = (#amount - #pos) - 1;
+  log(STW //shift %#shift_amt% %&dir%);
+  echo(//shift %#shift_amt% %&dir%);
+  #pos = #pos + amount - #pos - 1;
+  EXEC(setr.txt,"setr","%&dir%",0); DO; UNTIL(@#setr_complete == 1); log(complete);
+  #out_strength = 16 + #pos - %#amount%;
+  echo(//shift 1 %&dir%);
+  #out_strength = 15;
+else
+  #shift_amt = #amount - #pos;
+  log(FIN //shift %#shift_amt% %&dir%);
+  echo(//shift %#shift_amt% %&dir%);
+  #pos = #pos + #amount - #pos;
+endif
+echo(//expand %#amount% %&opp_dir%);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+echo(//contract %#amount% %&dir%);
+echo(//shift 1 d);
+SET(@#wire_complete,1);
+}$$

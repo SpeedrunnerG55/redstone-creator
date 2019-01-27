@@ -1,0 +1,35 @@
+$${
+SET(@#dispwires_complete,0);
+log(EXEC dispwires($$[1],$$[2])...);
+&in_side = $$[1];
+&st_side = $$[2];
+//calculate the opposite direction from in_side
+if(&st_side == "f"); &oppst_side = "b";
+  elseif(&st_side == "b"); &oppst_side = "f";
+  elseif(&st_side == "l"); &oppst_side = "r";
+  elseif(&st_side == "r"); &oppst_side = "l";
+  else; log(Invalid direction received :%&dir%);
+endif;
+log(1);
+EXEC(LWire.txt,"LWire",%&oppst_side%,%&in_side%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);
+echo(//shift 1 %&oppst_side%);
+log(2);
+EXEC(stairWire.txt,"stairWire",%&oppst_side%,"u",%&in_side%,1); DO; UNTIL(@#swire_complete == 1); log(complete);
+echo(//shift 1 %&oppst_side%);
+log(3);
+EXEC(stairWire.txt,"stairWire",%&st_side%,"d",%&in_side%,1); DO; UNTIL(@#swire_complete == 1); log(complete);
+echo(//shift 3 %&oppst_side%);
+log(4);
+EXEC(LWire.txt,"LWire",%&st_side%,%&in_side%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);
+echo(//shift 4 u);
+log(5);
+EXEC(LWire.txt,"LWire",%&st_side%,%&in_side%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);
+echo(//shift 2 %&st_side%);
+log(6);
+EXEC(stairWire.txt,"stairWire",%&st_side%,"u",%&in_side%,0); DO; UNTIL(@#swire_complete == 1); log(complete);
+echo(//shift 2 %&st_side%);
+log(7);
+EXEC(LWire.txt,"LWire",%&st_side%,%&in_side%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);
+echo(//shift 1 %&st_side%);
+SET(@#dispwires_complete,1);
+}$$

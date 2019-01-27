@@ -1,0 +1,53 @@
+$${
+  SET(@#bxor1_complete,0);
+  log(EXEC seto($$[1])...);
+    &dir = $$[1]
+    if(&dir == "f"); &opp_dir = "b";
+      elseif(&dir == "b"); &opp_dir = "f";
+      elseif(&dir == "l"); &opp_dir = "r";
+      elseif(&dir == "r"); &opp_dir = "l";
+      else; log(Invalid direction received :%&dir%
+    endif
+  echo(//set wool 5);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//shift 1 u);
+  EXEC(setr.txt,"setr","%&dir%",0); DO; UNTIL(@#setr_complete == 1); log(complete);
+  echo(//shift 2 d);
+  echo(//shift 1 %&dir%);
+  echo(//set wool 4);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//overlay redstone);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//shift 2 u);
+  echo(//set wool 5);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//overlay redstone);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//shift 1 %&dir%);
+  echo(//shift 1 u);
+  echo(//set wool 5);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//shift 1 %&dir%);
+  EXEC(sett.txt,"sett","%&dir%"); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//expand 1 %&opp_dir%);
+  echo(//expand 1 d);
+  echo(//stack 1 d -s);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//contract 1 %&opp_dir%);
+  echo(//contract 1 u);
+  echo(//shift 1 u);
+  EXEC(sett.txt,"sett","u"); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//shift 3 d);
+  EXEC(wire.txt,"wire",14,1,4,1,"%&dir%"); DO; UNTIL(@#wire_complete == 1); log(complete);
+  echo(//shift 1 %&dir%);
+  echo(//shift 1 u);
+  echo(//set wool 4);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//shift 1 u);
+  EXEC(sett.txt,"sett","u"); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//shift 1 u);
+  echo(//set wool 5);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+  echo(//overlay redstone);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+}$$

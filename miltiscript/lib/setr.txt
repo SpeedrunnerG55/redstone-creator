@@ -1,0 +1,23 @@
+$${
+SET(@#setr_complete,0);
+log(EXEC setr($$[1],$$[2])...);
+&dirs[0] = "N";
+&dirs[1] = "E";
+&dirs[2] = "S";
+&dirs[3] = "W";
+ &rel[0] = "f";
+ &rel[1] = "r";
+ &rel[2] = "b";
+ &rel[3] = "l";
+log($$[1]);
+indexof(&dirs[],#currentdir,%DIRECTION%)
+indexof(&rel[],#currentrelativedir,$$[1])
+#data = #currentdir + #currentrelativedir
+if(#data >= 4)
+    #data = #data - 4
+endif
+#value = #data + ($$[2] * 4); echo(//set redstone_repeater:%#value%);
+log(//set redstone_repeater:%#value%);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);
+SET(@#setr_complete,1);
+}$$

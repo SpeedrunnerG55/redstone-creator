@@ -1,0 +1,22 @@
+$${
+  SET(@#lvldown_complete,0);
+  log(EXEC LWire($$[1])...);
+  &st_side = $$[1]
+  //calculate the opposite direction from in_side
+  if(&st_side == "f"); &oppst_side = "b";
+    elseif(&st_side == "b"); &oppst_side = "f";
+    elseif(&st_side == "l"); &oppst_side = "r";
+    elseif(&st_side == "r"); &oppst_side = "l";
+    else; log(Invalid direction received :%&dir%);
+  endif;
+  echo(//shift 1 %&st_side%);
+  EXEC(sett.txt,"sett",%&st_side%); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//shift 2 d);
+  echo(//set wool:4);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+  echo(//overlay redstone);
+  echo(//shift 1 %&oppst_side%);
+  EXEC(sett.txt,"sett",%&oppst_side%); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//shift 2 d);
+  SET(@#lvldown_complete,1);
+}$$

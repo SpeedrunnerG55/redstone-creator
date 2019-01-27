@@ -1,0 +1,20 @@
+$${
+
+  boolian = 1;
+
+  if(boolian);
+    log(TRUE);
+    else
+    log(FALSE);
+  endif;
+
+  boolian = 0;
+
+  if(boolian);
+    log(TRUE);
+    else
+    log(FALSE);
+  endif;
+
+
+}$$

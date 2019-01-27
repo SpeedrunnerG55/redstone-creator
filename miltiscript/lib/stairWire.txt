@@ -1,0 +1,42 @@
+$${
+SET(@#swire_complete,0);
+log(EXEC stairWire($$[1],$$[2],$$[3],$$[4])...);
+&dir     = $$[1];
+&up      = $$[2];
+&in_side = $$[3];
+SET(move,  $$[4]);
+//calculate the opposite direction from in_side
+if(&in_side == "f");
+  log(oppin_side = b);
+  &oppin_side = "b";
+  elseif(&in_side == "b");
+  log(oppin_side = f);
+  &oppin_side = "f";
+  elseif(&in_side == "l");
+  log(oppin_side = r);
+  &oppin_side = "r";
+  elseif(&in_side == "r");
+  log(oppin_side = l);
+  &oppin_side = "l";
+  else; log(Invalid direction received :%&in_side%);
+endif;
+//calculate the opposite direction from in_side
+if(&up == "u");
+  log(oppup = d);
+  &oppup = "d";
+  elseif(&up == "d");
+  log(oppup = u);
+  &oppup = "u";
+  else; log(Invalid direction received :%&up%);
+endif;
+#value = 7;
+EXEC(stairs.txt,"stairs","wool",%#value%,"%&oppin_side%","%&up%",2); DO; UNTIL(@#stairs_complete == 1); log(complete);
+if(move);
+  log(move);
+  echo(//shift 1 %&dir%);
+endif;
+EXEC(wire.txt,"wire",10,4,%#value%,2,"%&oppin_side%"); DO; UNTIL(@#wire_complete == 1); log(complete);
+echo(//shift 4 %&in_side%);
+echo(//shift 2 %&oppup%);
+SET(@#swire_complete,1);
+}$$

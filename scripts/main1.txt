@@ -1,0 +1,451 @@
+$${
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 1 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 1 l);
+echo(//expand 1 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 1 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 1 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 2 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 2 l);
+echo(//expand 2 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 2 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 2 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 3 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 2 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 3 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 3 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 3 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 4 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 3 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 4 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 4 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 4 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 5 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 4 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 5 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 5 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 5 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 6 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 5 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 6 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 6 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 6 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 7 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 6 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 7 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 7 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 7 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 8 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 8 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 8 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 8 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 9 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 2 l);
+echo(//expand 9 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 9 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 9 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 10 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 3 l);
+echo(//expand 10 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 10 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 10 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 11 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 4 l);
+echo(//expand 11 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 11 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 11 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 12 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 5 l);
+echo(//expand 12 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 12 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 12 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 13 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 6 l);
+echo(//expand 13 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 13 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 13 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 14 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 7 l);
+echo(//expand 14 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 14 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 14 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 15 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 8 l);
+echo(//expand 15 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 15 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 15 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 16 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 9 l);
+echo(//expand 16 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 16 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 16 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 17 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 10 l);
+echo(//expand 17 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 17 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 17 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 18 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 11 l);
+echo(//expand 18 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 18 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 18 r);
+echo(//shift 2 f);
+// wire 
+echo(//set wool:3);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//stack 19 l);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 u);
+echo(//shift 7 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 11 l);
+// placing repeater based on direction 
+if(DIRECTION == "N"); echo(//set redstone_repeater:3);
+elseif(DIRECTION == "E"); echo(//set redstone_repeater:0);
+elseif(DIRECTION == "S"); echo(//set redstone_repeater:1);
+elseif(DIRECTION == "W"); echo(//set redstone_repeater:2);
+endif;
+// wait at end of if 
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//shift 1 l);
+echo(//expand 19 r);
+echo(//replace air redstone);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+echo(//contract 19 l);
+echo(//shift 1 d);
+// endwire 
+echo(//shift 19 r);
+echo(//shift 2 f);
+
+UNSET(@done);
+}$$

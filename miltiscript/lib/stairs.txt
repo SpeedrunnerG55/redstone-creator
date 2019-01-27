@@ -1,0 +1,20 @@
+$${
+SET(@#stairs_complete,0);
+log(EXEC stairs($$[1],$$[2],$$[3],$$[4],$$[5])...);
+&type     = $$[1];
+#value    = $$[2];
+&dir      = $$[3];
+&up       = $$[4];
+#distance = $$[5];
+log(//expand %#distance% %&dir%);
+echo(//expand %#distance% %&dir%);
+log(//expand %#distance% %&up%);
+echo(//expand %#distance% %&up%);
+echo(//line %&type%:%#value%);
+echo(//shift 1 u)
+echo(//line redstone);
+echo(//shift 1 d)
+echo(//contract %#distance% %&dir%);
+echo(//contract %#distance% %&up%);
+SET(@#stairs_complete,1);
+}$$

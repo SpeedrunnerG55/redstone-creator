@@ -1,0 +1,18 @@
+$${
+Log("Placing")
+FOR(#x = 0 to 3)
+    FOR(#y = 0 to 3)
+        Log("%#x%/%#y% out of 3/3")
+        #data = (#x * 4) + #y
+        #offsetx = #x * 2
+        #offsety = #y * 2
+
+        Wait(1t);Echo("//shift %#offsetx% l")
+        Wait(1t);Echo("//shift %#offsety% f")
+        Wait(1t);Echo("//set redstone_repeater:%#data%")
+        Wait(1t);Echo("//shift %#offsetx% r")
+        Wait(1t);Echo("//shift %#offsety% b")
+    NEXT
+NEXT
+Log("Done")
+}$$

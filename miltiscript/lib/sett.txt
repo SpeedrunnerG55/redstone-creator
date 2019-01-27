@@ -1,0 +1,34 @@
+$${
+SET(@#sett_complete,0);
+log(EXEC sett($$[1])...);
+&dir = $$[1];
+if(%&dir% == "u"); log(%&dir% == "u"); #value = 5; log(%#value%);
+elseif(%&dir% == "r");
+  if(DIRECTION     == "W"); #value = 4;
+  elseif(DIRECTION == "E"); #value = 3;
+  elseif(DIRECTION == "N"); #value = 1;
+  elseif(DIRECTION == "S"); #value = 2;
+  endif;
+elseif(%&dir% == "l");
+  if(DIRECTION     == "W"); #value = 3;
+  elseif(DIRECTION == "E"); #value = 4;
+  elseif(DIRECTION == "N"); #value = 2;
+  elseif(DIRECTION == "S"); #value = 1;
+  endif;
+elseif(%&dir% == "f");
+  if(DIRECTION     == "W"); #value = 2;
+  elseif(DIRECTION == "E"); #value = 1;
+  elseif(DIRECTION == "N"); #value = 4;
+  elseif(DIRECTION == "S"); #value = 3;
+  endif;
+elseif(%&dir% == "b");
+  if(DIRECTION     == "W"); #value = 1;
+  elseif(DIRECTION == "E"); #value = 2;
+  elseif(DIRECTION == "N"); #value = 3;
+  elseif(DIRECTION == "S"); #value = 4;
+  endif;
+endif;
+echo(//set redstone_torch:%#value%);
+UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+SET(@#sett_complete,1);
+}$$

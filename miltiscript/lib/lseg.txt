@@ -1,0 +1,18 @@
+$${
+  SET(@#lseg_complete,0);
+  log(EXEC LWire($$[1])...);
+  &dir = $$[1]
+  if(&dir == "f");  &opp_dir = "b";
+    elseif(&dir == "b");  &opp_dir = "f";
+    elseif(&dir == "l");  &opp_dir = "r";
+    elseif(&dir == "r");  &opp_dir = "l";
+    else; log(Invalid direction received :%&dir%
+  endif
+  echo(//shift 1 %&dir%)
+  echo(//set redstone_Lamp);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+  echo(//stack 2 %&dir%)
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+  echo(//shift 1 %&opp_dir%)
+  SET(@#lseg_complete,1);
+}$$
