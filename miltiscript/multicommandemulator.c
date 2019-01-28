@@ -10,28 +10,64 @@ feature to keep track of
 my selection between functions
 */
 
-char * script = "";
+char * mainScript = "";
+unsigned long mainLength = 1;
+
+char * subScript = "";
 unsigned long scriptLength = 1;
-short num_buffers = 1;
+
 
 //counters to esimate execution time
 unsigned int longwaits = 0;
 
-void printFileBuffer(char* name, unsigned char index){
+void toMain(char* fileName, unsigned char index){
+  char exec[100];
+  snprintf(exec,100,"EXEC(%s%i.txt,\"%s%i\"); DO; UNTIL(@#%s%i_complete == 1); log(complete);\n",fileName,index,fileName,index,fileName,index);
+
+  short length = strlen(exec);
+  mainScript[mainLength - 1] = 0; //place null terminator at end
+  mainLength += length;
+  mainScript = realloc(mainScript,mainLength + 1);
+  strncat(mainScript,exec,mainLength);
+}
+
+void printMain(){
 
   char fileName[30];
-  snprintf(fileName,30,"main/%s%i.txt",name,index);
+  snprintf(fileName,30,"main/main.txt");
 
   FILE * mPtr = fopen(fileName,"w");
-  // printf("%p > %s\n",(void*)mPtr,script);
+  // printf("%p > %s\n",(void*)mPtr,subScript);
   fprintf(mPtr,"$${\n");
 
-  fprintf(mPtr,"%s\n",script);
+  fprintf(mPtr,"%s\n",mainScript);
+
+  fprintf(mPtr,"}$$\n");
+  fclose(mPtr);
+
+  printf("done\n estimated execution time: %i \n",longwaits);
+}
+
+void printFileBuffer(char* name, unsigned char index){
+
+  char path[30];
+  snprintf(path,30,"main/%s%i.txt",name,index);
+
+  FILE * mPtr = fopen(path,"w");
+  // printf("%p > %s\n",(void*)mPtr,subScript);
+  fprintf(mPtr,"$${\n");
+
+  fprintf(mPtr,"SET(@#%s%i_complete,0);\n",name,index);
+
+  fprintf(mPtr,"%s\n",subScript);
+
+  toMain(name,index);
+
+  fprintf(mPtr,"SET(@#%s%i_complete,1);\n",name,index);
 
   scriptLength = 1;
-  script[scriptLength - 1] = '\0'; //place null terminator at end
-  script = realloc(script,scriptLength);
-  num_buffers++;
+  subScript[scriptLength - 1] = '\0'; //place null terminator at end
+  subScript = realloc(subScript,scriptLength);
 
   fprintf(mPtr,"UNSET(@done);\n");
   fprintf(mPtr,"}$$\n");
@@ -41,23 +77,14 @@ void printFileBuffer(char* name, unsigned char index){
 }
 
 short commandBuffer = 130;
-unsigned short max_command = 0;
 
 void toScript(char* message){
 
-  if(strlen(message) > max_command){
-    max_command = strlen(message);
-    printf("%i\n",max_command);
-  }
-
-  _Bool printing = 1;
-  if(printing){
-    short length = strlen(message);
-    script[scriptLength - 1] = 0; //place null terminator at end
-    scriptLength += length;
-    script = realloc(script,scriptLength + 1);
-    strncat(script,message,scriptLength);
-  }
+  short length = strlen(message);
+  subScript[scriptLength - 1] = 0; //place null terminator at end
+  scriptLength += length;
+  subScript = realloc(subScript,scriptLength + 1);
+  strncat(subScript,message,scriptLength);
 }
 
 void comment(char * message){
@@ -681,7 +708,7 @@ void waitUntlDone(){
   longwaits++;
 }
 
-void memory_Replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specificB, char valueB){
+void memory_replace(char* typeA, _Bool specificA,char valueA, char* typeB,_Bool specificB, char valueB){
 
   //in memory
   struct extents selExt = getAllSelExtents();
@@ -723,7 +750,7 @@ void replace(char* typeA, _Bool specificA, char valueA, char* typeB,_Bool specif
   }
   toScript(");\n");
   waitUntlDone();
-  memory_Replace(typeA,specificA,valueA,typeB,specificB,valueB);
+  memory_replace(typeA,specificA,valueA,typeB,specificB,valueB);
 }
 
 void memory_set_block(struct block B){
@@ -1434,7 +1461,7 @@ void setp(char dir, _Bool sticky){
   memory_setp(dir,sticky);
 }
 
-//bare bones scripted file i can execute rather than generaing its output (greatly reduces file sizes so i can have just the repeated script call rthther t han its contents)
+//bare bones scripted file i can execute rather than generaing its output (greatly reduces file sizes so i can have just the repeated subScript call rthther t han its contents)
 void script_wire(){
 
   //short in_strength,unsigned char out_toll, unsigned char value, unsigned short amount, char dir
@@ -1474,9 +1501,11 @@ void script_wire(){
   fprintf(wire,"echo(//set wool:%%#value%%);\n");
   fprintf(wire,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
 
-  fprintf(wire,"log(//stack %%#amount%% %%&dir%%);\n");
-  fprintf(wire,"echo(//stack %%#amount%% %%&dir%%);\n");
-  fprintf(wire,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"if(#amount > 0);\n");
+  fprintf(wire,"  log(//stack %%#amount%% %%&dir%%);\n");
+  fprintf(wire,"  echo(//stack %%#amount%% %%&dir%%);\n");
+  fprintf(wire,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"endif;\n");
 
   //shift up to do redstone
   fprintf(wire,"echo(//shift 1 u);\n");
@@ -1503,9 +1532,12 @@ void script_wire(){
   //-s option ensures im at the end of the lines and in position for the final line if needed
 
   fprintf(wire,"  #stack_amt = ((#amount - #in_strength) / 16) - 1;\n");
-  fprintf(wire,"  log(//stack SA %%#stack_amt%% %%&dir%% -s);\n");
-  fprintf(wire,"  echo(//stack %%#stack_amt%% %%&dir%% -s);\n");
-  fprintf(wire,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+
+  fprintf(wire,"  if(#stack_amt > 0);\n");
+  fprintf(wire,"    log(//stack SA %%#stack_amt%% %%&dir%% -s);\n");
+  fprintf(wire,"    echo(//stack %%#stack_amt%% %%&dir%% -s);\n");
+  fprintf(wire,"    UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"  endif;\n");
 
   fprintf(wire,"  echo(//contract 15 %%&dir%%);\n"); //opposite
 
@@ -1619,7 +1651,7 @@ unsigned char memory_wire(short in_strength,unsigned char out_toll, unsigned cha
   }
   //place redstone
   memory_expand(amount,opp_dir(dir));
-  memory_Replace("air",0,0,"redstone",0,0);
+  memory_replace("air",0,0,"redstone",0,0);
   memory_contract(amount,dir);
   //go back down into end position
   memory_shift(1,'d');
@@ -2190,6 +2222,62 @@ void buildandSupport(short inBits, unsigned char outBits, short in_side, char st
   comment("endbuildandSupport");
 }
 
+
+void script_write(){
+
+  FILE * write = fopen("lib/write.txt","w");
+
+  fprintf(write,"$${\n");
+
+  fprintf(write,"  SET(@#write_complete,0);\n");
+
+  fprintf(write,"  log(EXEC write($$[1])...);\n");
+
+  fprintf(write,"  #value   = $$[1]\n");
+  fprintf(write,"  &in_side = $$[2]\n");
+
+  fprintf(write,"  //calculate the opposite direction from in_side\n");
+  fprintf(write,"  if(&in_side == \"f\");\n  &oppin_side = \"b\";\n");
+  fprintf(write,"    elseif(&in_side == \"b\");\n  &oppin_side = \"f\";\n");
+  fprintf(write,"    elseif(&in_side == \"l\");\n  &oppin_side = \"r\";\n");
+  fprintf(write,"    elseif(&in_side == \"r\");\n  &oppin_side = \"l\";\n");
+  fprintf(write,"    else; log(Invalid direction received :%%&dir%%\n");
+  fprintf(write,"  endif\n");
+
+  fprintf(write,"  echo(//replace wool:4 wool:%%&value%%);\n");
+  fprintf(write,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(write,"  echo(//shift 1 %%&in_side%%);\n");
+  fprintf(write,"  EXEC(sett.txt,\"sett\",%%&in_side%%); DO; UNTIL(@#sett_complete == 1); log(complete);\n");
+  fprintf(write,"  echo(//shift 2 d);\n");
+  fprintf(write,"  echo(//replace wool:7 wool:%%&value%%);\n");
+  fprintf(write,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(write,"  echo(//shift 2 u);\n");
+  fprintf(write,"  echo(//shift 1 %%&oppin_side%%);\n");
+
+  fprintf(write,"  SET(@#write_complete,1);\n");
+
+  fprintf(write,"}$$\n");
+
+  fclose(write);
+}
+
+void memory_write(unsigned char value,char in_side){
+  memory_replace("wool",1,4,"wool",1,value);//looks better i think
+  memory_shift(1,in_side);
+  memory_sett(in_side);
+  memory_shift(2,'d');
+  memory_replace("wool",1,7,"wool",1,value);//looks better i think
+  memory_shift(2,'u');
+  memory_shift(1,opp_dir(in_side));
+}
+
+void write(unsigned char value,char in_side){
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"EXEC(write.txt,\"write\",%i,\"%c\"); DO; UNTIL(@#write_complete == 1); log(complete);\n",value,in_side);
+  toScript(command);
+  memory_write(value,in_side);
+}
+
 void dataEntry(unsigned char value, unsigned char entry,char in_side,char st_side, unsigned char max){
 
   comment("dataEntry");
@@ -2204,13 +2292,7 @@ void dataEntry(unsigned char value, unsigned char entry,char in_side,char st_sid
     if((1 & entry >> oB)){
       shift(shiftcount,opp_dir(st_side));
       pos += shiftcount;
-      replace("wool",1,4,"wool",1,value);//looks better i think
-      shift(1,in_side);
-      sett(in_side);
-      shift(2,'d');
-      replace("wool",1,7,"wool",1,value);//looks better i think
-      shift(2,'u');
-      shift(1,opp_dir(in_side));
+      write(value,in_side);
       //the next one is at least 2 shifts away
       shiftcount = 2;
     }
@@ -2240,7 +2322,7 @@ void script_lvlDown(){
 
   fprintf(lvlDown,"  &st_side = $$[1]\n");
 
-  fprintf(lvlDown,"  //calculate the opposite direction from in_side\n");
+  fprintf(lvlDown,"  //calculate the opposite direction from st_side\n");
   fprintf(lvlDown,"  if(&st_side == \"f\"); &oppst_side = \"b\";\n");
   fprintf(lvlDown,"    elseif(&st_side == \"b\"); &oppst_side = \"f\";\n");
   fprintf(lvlDown,"    elseif(&st_side == \"l\"); &oppst_side = \"r\";\n");
@@ -2515,10 +2597,10 @@ void script_LWire(){
   fprintf(LWire,"SET(move,  $$[3]);\n");
 
   fprintf(LWire,"//calculate the opposite direction from in_side\n");
-  fprintf(LWire,"if(&in_side == \"f\");\n  log(oppin_side = b);\n  &oppin_side = \"b\";\n");
-  fprintf(LWire,"  elseif(&in_side == \"b\");\n  log(oppin_side = f);\n  &oppin_side = \"f\";\n");
-  fprintf(LWire,"  elseif(&in_side == \"l\");\n  log(oppin_side = r);\n  &oppin_side = \"r\";\n");
-  fprintf(LWire,"  elseif(&in_side == \"r\");\n  log(oppin_side = l);\n  &oppin_side = \"l\";\n");
+  fprintf(LWire,"if(&in_side == \"f\");\n  &oppin_side = \"b\";\n");
+  fprintf(LWire,"  elseif(&in_side == \"b\");\n  &oppin_side = \"f\";\n");
+  fprintf(LWire,"  elseif(&in_side == \"l\");\n  &oppin_side = \"r\";\n");
+  fprintf(LWire,"  elseif(&in_side == \"r\");\n  &oppin_side = \"l\";\n");
   fprintf(LWire,"  else; log(Invalid direction received :%%&dir%%\n");
   fprintf(LWire,"endif\n");
 
@@ -3053,12 +3135,15 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
   for(int i = 0; i < width; i++){
 
     const unsigned char collor = arg.collors[i];
+    short distance;
 
     if(flip){
       if(arg.loc.st_side == newdir){
-        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,olddir);
+        distance = ((width - 1) - i) * 2;
+        if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
         tower(depth,'d',collor);
-        arg.strength[i] = wire(16,1,collor,i * 2,newdir);
+        distance = i * 2;
+        if(distance > 0) arg.strength[i] = wire(16,1,collor,distance,newdir);
         if(i != width -1){
           shift(((width - 1) - i) * 2,opp_olddir);
           shift(i * 2,opp_newdir);
@@ -3067,9 +3152,11 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,olddir);
+        distance = i * 2;
+        if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
         tower(depth,'d',collor);
-        arg.strength[i] = wire(16,1,collor,((width - 1) - i) * 2,newdir);
+        distance = ((width - 1) - i) * 2;
+        if(distance > 0) arg.strength[i] = wire(16,1,collor,distance,newdir);
         if(i != width -1){
           shift(i * 2,opp_olddir);
           shift(((width - 1) - i) * 2,opp_newdir);
@@ -3080,8 +3167,11 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
     }
     else{
       if(arg.loc.st_side == newdir){
-        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,olddir);
-        arg.strength[i] = wire(arg.strength[i],1,collor,i * 2,newdir);
+        distance = i * 2;
+        if(distance > 0){
+          arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
+          arg.strength[i] = wire(arg.strength[i],1,collor,distance,newdir);
+        }
         if(i != width -1){
           shift(i * 2,opp_olddir);
           shift(i * 2,opp_newdir);
@@ -3089,8 +3179,11 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         }
       }
       else{
-        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,olddir);
-        arg.strength[i] = wire(arg.strength[i],1,collor,((width - 1) - i) * 2,newdir);
+        distance = ((width - 1) - i) * 2;
+        if(distance > 0){
+          arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
+          arg.strength[i] = wire(arg.strength[i],1,collor,distance,newdir);
+        }
         if(i != width -1){
           shift(((width - 1) - i) * 2,opp_olddir);
           shift(((width - 1) - i) * 2,opp_newdir);
@@ -4139,8 +4232,7 @@ struct buss halfSwapSides(struct buss inBuss,short amount,char turndir,char shif
   comment("halfSwapSides");
 
   short bits = inBuss.width;
-
-
+  
   for(short i = 0; i < 4; i++){
 
     struct buss subBuss;
@@ -4505,7 +4597,6 @@ void DES(){
     printFileBuffer("decrypt",i + 1);
   }
 
-
   comment("shiftGroup2");
   shift(64 * 2 + distance + 4,'f');
   shift(10 * (num_rounds),'d');
@@ -4540,6 +4631,7 @@ void printScripts(){
   script_lvlDown();
   script_bxor1();
   script_bxor2();
+  script_write();
 }
 
 void clearFirstBlock(){
@@ -4552,53 +4644,22 @@ void clearFirstBlock(){
 
 int main(){
 
-  getchar();
   printScripts();
-
 
   //memory allocation
   map = malloc(sizeof(struct block));
-  script = malloc(1);
+  mainScript = malloc(1);
+  subScript = malloc(1);
   clearFirstBlock();
-
-  // getchar();
 
   DES();
 
-  // for(int i = 14; i < 70; i += 11){
-  //   printf("wure %i - \n",i);
-  //   wire(7,5,3,i,'l');
-  //   shift(i,'r');
-  //   shift(2,'f');
-  // }
-
-  // for(int i = 0; i < 4; i++){
-  //   setr('f',i);shift(2,'f');
-  //   setr('r',i);shift(2,'f');
-  //   setr('b',i);shift(2,'f');
-  //   setr('l',i);shift(6,'b');
-  //   shift(2,'l');
-  // }
-
-  // sett('u');
-  // shift(1,'d');
-  // shift(1,'f');
-  // sett('f');
-  // shift(2,'b');
-  // sett('b');
-  // shift(1,'f');
-  // shift(1,'l');
-  // sett('l');
-  // shift(2,'r');
-  // sett('r');
-
-  // buildOutput(1,'l','b');
-
+  printMain();
   buildMaterialLibrary();
   buildWaveFront();
   buildImmages();
 
-  free(script);
+  free(subScript);
   //end portion of main (freeing and closing pointers)
   freeBlockMap();
 

@@ -2,7 +2,7 @@ $${
   SET(@#lvldown_complete,0);
   log(EXEC LWire($$[1])...);
   &st_side = $$[1]
-  //calculate the opposite direction from in_side
+  //calculate the opposite direction from st_side
   if(&st_side == "f"); &oppst_side = "b";
     elseif(&st_side == "b"); &oppst_side = "f";
     elseif(&st_side == "l"); &oppst_side = "r";

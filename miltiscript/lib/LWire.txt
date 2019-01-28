@@ -6,16 +6,12 @@ log(EXEC LWire($$[1],$$[2],$$[3])...);
 SET(move,  $$[3]);
 //calculate the opposite direction from in_side
 if(&in_side == "f");
-  log(oppin_side = b);
   &oppin_side = "b";
   elseif(&in_side == "b");
-  log(oppin_side = f);
   &oppin_side = "f";
   elseif(&in_side == "l");
-  log(oppin_side = r);
   &oppin_side = "r";
   elseif(&in_side == "r");
-  log(oppin_side = l);
   &oppin_side = "l";
   else; log(Invalid direction received :%&dir%
 endif

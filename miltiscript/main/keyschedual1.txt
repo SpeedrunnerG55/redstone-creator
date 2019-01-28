@@ -1,4 +1,5 @@
 $${
+SET(@#keyschedual1_complete,0);
 // buildPermute
 echo(//shift 2 u);
 echo(//shift 2 l);
@@ -23630,5 +23631,6 @@ echo(//shift 150 d);
 echo(//shift 2 r);
 echo(//shift 2 f);
 
+SET(@#keyschedual1_complete,1);
 UNSET(@done);
 }$$

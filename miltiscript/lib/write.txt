@@ -1,0 +1,27 @@
+$${
+  SET(@#write_complete,0);
+  log(EXEC write($$[1])...);
+  #value   = $$[1]
+  &in_side = $$[2]
+  //calculate the opposite direction from in_side
+  if(&in_side == "f");
+  &oppin_side = "b";
+    elseif(&in_side == "b");
+  &oppin_side = "f";
+    elseif(&in_side == "l");
+  &oppin_side = "r";
+    elseif(&in_side == "r");
+  &oppin_side = "l";
+    else; log(Invalid direction received :%&dir%
+  endif
+  echo(//replace wool:4 wool:%&value%);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+  echo(//shift 1 %&in_side%);
+  EXEC(sett.txt,"sett",%&in_side%); DO; UNTIL(@#sett_complete == 1); log(complete);
+  echo(//shift 2 d);
+  echo(//replace wool:7 wool:%&value%);
+  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); 
+  echo(//shift 2 u);
+  echo(//shift 1 %&oppin_side%);
+  SET(@#write_complete,1);
+}$$
