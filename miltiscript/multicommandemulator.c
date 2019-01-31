@@ -10,10 +10,10 @@ feature to keep track of
 my selection between functions
 */
 
-char * mainScript = "";
+char * mainScript = "\0";
 unsigned long mainLength = 1;
 
-char * subScript = "";
+char * subScript = "\0";
 unsigned long scriptLength = 1;
 
 
@@ -22,7 +22,7 @@ unsigned int longwaits = 0;
 
 void toMain(char* fileName, unsigned char index){
   char exec[100];
-  snprintf(exec,100,"EXEC(%s%i.txt,\"%s%i\"); DO; UNTIL(@#%s%i_complete == 1); log(complete);\n",fileName,index,fileName,index,fileName,index);
+  snprintf(exec,100,"echo(%s:%i!); EXEC(%s%i.txt,\"%s%i\"); DO; UNTIL(@#%s%i_complete == 1); log(complete);\n",fileName,index,fileName,index,fileName,index,fileName,index);
 
   short length = strlen(exec);
   mainScript[mainLength - 1] = 0; //place null terminator at end
@@ -48,7 +48,7 @@ void printMain(){
   printf("done\n estimated execution time: %i \n",longwaits);
 }
 
-void printFileBuffer(char* name, unsigned char index){
+void printSubScript(char* name, unsigned char index){
 
   char path[30];
   snprintf(path,30,"main/%s%i.txt",name,index);
@@ -428,7 +428,7 @@ void buildImmages(){
   for(short y = mapD - 1; y >=0; y--){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int collor = backround;
-      for(short z = 0; z < mapH; z++){
+      for(short z = mapH - 1; z >= 0; z--){
         int index = getIndex(x,z,y);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,partLookup(getPartnameForBlock(map[index].type,0)));
@@ -436,6 +436,7 @@ void buildImmages(){
             collor = blockCollor;
             float scaler = (float)z / (mapH);
             darken(&collor,scaler);
+            break;
           }
         }
       }
@@ -458,7 +459,7 @@ void buildImmages(){
   for(short z = mapH - 1; z >= 0; z--){
     for(short x = mapW - 1; x >= 0; x--){
       unsigned int  collor = backround;
-      for(short y = mapD - 1; y >= 0; y--){
+      for(short y = 0; y < mapD; y++){
         int index = getIndex(x,z,y);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,partLookup(getPartnameForBlock(map[index].type,0)));
@@ -466,6 +467,7 @@ void buildImmages(){
             collor = blockCollor;
             float scaler = (float)(mapD - y) / mapD;
             darken(&collor,scaler);
+            break;
           }
         }
       }
@@ -488,7 +490,7 @@ void buildImmages(){
   for(short z = mapH - 1; z >= 0; z--){
     for(short y = mapD - 1; y >= 0; y--){
       unsigned int  collor = backround;
-      for(short x = 0; x < mapW; x++){
+      for(short x = mapW - 1; x >= 0; x--){
         int index = getIndex(x,z,y);
         if(!mask(map[index].type)){
           int blockCollor = collorLookup(map[index].value,partLookup(getPartnameForBlock(map[index].type,0)));
@@ -496,6 +498,7 @@ void buildImmages(){
             collor = blockCollor;
             float scaler = (float)(mapW - x) / mapW;
             darken(&collor,scaler);
+            break;
           }
         }
       }
@@ -703,7 +706,7 @@ void checkAndExpand(unsigned short distance,char dir){
 }
 
 void waitUntlDone(){
-  char *command = "UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n";
+  char *command = "UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n";
   toScript(command);
   longwaits++;
 }
@@ -789,6 +792,8 @@ void set_block(struct block B, _Bool wait){
 
 void memory_overlay(char* type, unsigned char value){
 
+  checkAndExpand(1,'u');
+
   //in memory
   struct extents selExt = getAllSelExtents();
 
@@ -820,7 +825,6 @@ void overlay(char* type, unsigned char value){
   snprintf(command,commandBuffer,"echo(//overlay %s:%i);\n",type,value);
   toScript(command);
 
-  checkAndExpand(1,'u');
   waitUntlDone();
   memory_overlay(type,value);
 }
@@ -1165,7 +1169,7 @@ void script_setr(){
 
   fprintf(setr,"#value = #data + ($$[2] * 4); echo(//set redstone_repeater:%%#value%%);\n");
   fprintf(setr,"log(//set redstone_repeater:%%#value%%);\n");
-  fprintf(setr,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(setr,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
 
   fprintf(setr,"SET(@#setr_complete,1);\n");
 
@@ -1247,7 +1251,7 @@ void script_sett(){
 
   fprintf(sett,"echo(//set redstone_torch:%%#value%%);\n");
 
-  fprintf(sett,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(sett,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
 
   fprintf(sett,"SET(@#sett_complete,1);\n");
 
@@ -1294,8 +1298,8 @@ void script_seto(){
 
   fprintf(seto,"&dir = $$[1];\n");
 
-  fprintf(seto,"if(%%&dir%%     == \"u\"); log(%%&dir%% == \"u\"); #value = 0; log(%%#value%%);\n");
-  fprintf(seto,"elseif(%%&dir%% == \"d\"); log(%%&dir%% == \"u\"); #value = 1; log(%%#value%%);\n");
+  fprintf(seto,"if(%%&dir%%     == \"u\"); #value = 0; log(%%#value%%);\n");
+  fprintf(seto,"elseif(%%&dir%% == \"d\"); #value = 1; log(%%#value%%);\n");
 
   fprintf(seto,"elseif(%%&dir%% == \"r\");\n");
   fprintf(seto,"  if(DIRECTION     == \"W\"); #value = 3;\n");
@@ -1329,7 +1333,7 @@ void script_seto(){
 
   fprintf(seto,"echo(//set observor:%%#value%%);\n");
 
-  fprintf(seto,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(seto,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
 
   fprintf(seto,"SET(@#seto_complete,1);\n");
 
@@ -1378,18 +1382,10 @@ void script_setp(){
   fprintf(setp,"&dir      = $$[1];\n");
   fprintf(setp,"SET(sticky, $$[2]);\n");
 
-  fprintf(setp,"if(%%&dir%%     == \"u\"); log(%%&dir%% == \"u\"); #value = 1;\n");
-  fprintf(setp,"elseif(%%&dir%% == \"d\"); log(%%&dir%% == \"d\"); #value = 0;\n");
+  fprintf(setp,"if(%%&dir%%     == \"u\"); #value = 1;\n");
+  fprintf(setp,"elseif(%%&dir%% == \"d\"); #value = 0;\n");
 
-  fprintf(setp,"elseif(%%&dir%% == \"r\"); log(%%&dir%% == \"r\");\n");
-
-  fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 3;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 2;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"N\"); #value = 4;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 5;\n");
-  fprintf(setp,"  endif;\n");
-
-  fprintf(setp,"elseif(%%&dir%% == \"l\"); log(%%&dir%% == \"l\");\n");
+  fprintf(setp,"elseif(%%&dir%% == \"r\");\n");
 
   fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 2;\n");
   fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 3;\n");
@@ -1397,20 +1393,28 @@ void script_setp(){
   fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 4;\n");
   fprintf(setp,"  endif;\n");
 
-  fprintf(setp,"elseif(%%&dir%% == \"f\"); log(%%&dir%% == \"f\");\n");
+  fprintf(setp,"elseif(%%&dir%% == \"l\");\n");
 
-  fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 5;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 4;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"N\"); #value = 3;\n");
-  fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 2;\n");
+  fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 3;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 2;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"N\"); #value = 4;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 5;\n");
   fprintf(setp,"  endif;\n");
 
-  fprintf(setp,"elseif(%%&dir%% == \"b\"); log(%%&dir%% == \"b\");\n");
+  fprintf(setp,"elseif(%%&dir%% == \"f\");\n");
 
   fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 4;\n");
   fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 5;\n");
   fprintf(setp,"  elseif(DIRECTION == \"N\"); #value = 2;\n");
   fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 3;\n");
+  fprintf(setp,"  endif;\n");
+
+  fprintf(setp,"elseif(%%&dir%% == \"b\");\n");
+
+  fprintf(setp,"  if(DIRECTION     == \"W\"); #value = 5;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"E\"); #value = 4;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"N\"); #value = 3;\n");
+  fprintf(setp,"  elseif(DIRECTION == \"S\"); #value = 2;\n");
   fprintf(setp,"  endif;\n");
 
   fprintf(setp,"endif;\n");
@@ -1421,7 +1425,7 @@ void script_setp(){
   fprintf(setp,"  echo(//set piston:%%#value%%);\n");
   fprintf(setp,"endif\n");
 
-  fprintf(setp,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(setp,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
 
   fprintf(setp,"SET(@#setp_complete,1);\n");
 
@@ -1497,14 +1501,12 @@ void script_wire(){
   fprintf(wire,"#out_strength = #in_strength - #amount;\n");
 
   //support structure for redstone
-  fprintf(wire,"log(//set wool:%%#value%%);\n");
   fprintf(wire,"echo(//set wool:%%#value%%);\n");
-  fprintf(wire,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
 
   fprintf(wire,"if(#amount > 0);\n");
-  fprintf(wire,"  log(//stack %%#amount%% %%&dir%%);\n");
   fprintf(wire,"  echo(//stack %%#amount%% %%&dir%%);\n");
-  fprintf(wire,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(wire,"endif;\n");
 
   //shift up to do redstone
@@ -1521,7 +1523,7 @@ void script_wire(){
   fprintf(wire,"endif\n");
 
   //check to see if there is enough room for at least 1 full 16 line
-  fprintf(wire,"if((#amount - #in_strength - 1) >= 16);\n");
+  fprintf(wire,"if(((#amount - #in_strength) - 1) >= 16);\n");
   fprintf(wire,"  log(F //shift 16 %%&dir%%);\n");
   fprintf(wire,"  echo(//shift 16 %%&dir%%);\n");
   fprintf(wire,"  EXEC(setr.txt,\"setr\",\"%%&dir%%\",0); DO; UNTIL(@#setr_complete == 1); log(complete);\n");
@@ -1536,18 +1538,19 @@ void script_wire(){
   fprintf(wire,"  if(#stack_amt > 0);\n");
   fprintf(wire,"    log(//stack SA %%#stack_amt%% %%&dir%% -s);\n");
   fprintf(wire,"    echo(//stack %%#stack_amt%% %%&dir%% -s);\n");
-  fprintf(wire,"    UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"    UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(wire,"  endif;\n");
 
   fprintf(wire,"  echo(//contract 15 %%&dir%%);\n"); //opposite
 
   fprintf(wire,"  #pos = #pos + ((#amount - #in_strength) / 16) * 16;\n");
   fprintf(wire,"  #out_strength = 16 + #pos - #amount;\n");
-  fprintf(wire,"  if(((#amount - #in_strength) / 16) == 0)\n");
+  fprintf(wire,"  #num = #amount - #in_strength;\n");
+  fprintf(wire,"  if(((#num/16)*16) == #num)\n");
 
-  fprintf(wire,"    log(TF //move 1 %%&opp_dir%%\n");
-  fprintf(wire,"    echo(//move 1 %%&opp_dir%%\n");
-  fprintf(wire,"    UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"    log(TF //move 1 %%&opp_dir%%);\n");
+  fprintf(wire,"    echo(//move 1 %%&opp_dir%%);\n");
+  fprintf(wire,"    UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
 
   fprintf(wire,"    #out_strength = #out_strength - 1;\n");
   fprintf(wire,"  endif;\n");
@@ -1577,7 +1580,7 @@ void script_wire(){
   fprintf(wire,"echo(//expand %%#amount%% %%&opp_dir%%);\n"); //opposite
 
   fprintf(wire,"echo(//replace air redstone);\n");
-  fprintf(wire,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(wire,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
 
   fprintf(wire,"echo(//contract %%#amount%% %%&dir%%);\n");
   //go back down into end position
@@ -1629,7 +1632,8 @@ unsigned char memory_wire(short in_strength,unsigned char out_toll, unsigned cha
 
     pos += ((amount - in_strength) / 16) * 16;
     out_strength = 16 + pos - amount;
-    if((amount - in_strength) / 16 == 0){
+    short num = amount - in_strength;
+    if(((num/16)*16) == num){
       memory_Move(1,0,opp_dir(dir));
       out_strength--;
     }
@@ -1800,7 +1804,7 @@ void memory_Stairs(char* type, unsigned char value, char dir, char up, char dist
 
 void stairs(char* type, unsigned char value, char dir, char up,unsigned char distance){
   char command[commandBuffer];
-  snprintf(command,commandBuffer,"EXEC(stairs.txt,\"stairs\",%s,%i,%c,%c,%i); DO; UNTIL(@#wire_complete == 1); log(complete);\n",type,value,dir,up,distance);
+  snprintf(command,commandBuffer,"EXEC(stairs.txt,\"stairs\",%s,%i,%c,%c,%i); DO; UNTIL(@#stairs_complete == 1); log(complete);\n",type,value,dir,up,distance);
   toScript(command);
   memory_Stairs(type,value,dir,up,distance);
 }
@@ -1968,38 +1972,6 @@ void buildDecoder(short inBits,char dir,char st_side,unsigned char rows,unsigned
   comment("endbuildDecoder");
 }
 
-void tower(unsigned short distance,char up, unsigned char value){
-
-  //pack B
-  struct block B;
-  B.type = blockLookup("wool");
-  B.value = value;
-  B.reldir = '\0';
-
-  comment("tower");
-  distance--;
-  if(distance > 0){
-    if(up == 'u'){
-      shift(2,'u');
-      seto(up);
-      if(distance > 1){
-        stack(distance - 1,'u',"s");
-      }
-      overlay("wool",value);
-    }
-    else{
-      seto('d');
-      if(distance > 1){
-        stack(distance - 1,'d',"s");
-      }
-      shift(1,'d');
-      set_block(B,1);
-      shift(1,'d');
-    }
-  }
-  comment("endtower");
-}
-
 void invertor(char value, char dir){
   struct block B;
   B.value = value;
@@ -2013,14 +1985,14 @@ void invertor(char value, char dir){
 
 void script_t_flip(){
 
-  FILE* t_flip = fopen("lib/dwires.txt","w");
+  FILE* t_flip = fopen("lib/t_flip.txt","w");
 
   fprintf(t_flip,"$${\n");
 
   fprintf(t_flip,"SET(@#t_flip_complete,0);\n");
 
   //print function call
-  fprintf(t_flip,"log(EXEC dispwires($$[1])...);\n");
+  fprintf(t_flip,"log(EXEC t_flip($$[1])...);\n");
 
   fprintf(t_flip,"&dir = $$[1];\n");
 
@@ -2032,7 +2004,7 @@ void script_t_flip(){
   fprintf(t_flip,"echo(//shift 1 %%&dir%%);\n");
 
   fprintf(t_flip,"echo(//set redstone_Block %%&dir%%);\n");
-  fprintf(t_flip,"UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(t_flip,"UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
 
   fprintf(t_flip,"echo(//shift 1 %%&dir%%);\n");
   fprintf(t_flip,"echo(//shift 1 d);\n");
@@ -2245,12 +2217,12 @@ void script_write(){
   fprintf(write,"  endif\n");
 
   fprintf(write,"  echo(//replace wool:4 wool:%%&value%%);\n");
-  fprintf(write,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(write,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
   fprintf(write,"  echo(//shift 1 %%&in_side%%);\n");
   fprintf(write,"  EXEC(sett.txt,\"sett\",%%&in_side%%); DO; UNTIL(@#sett_complete == 1); log(complete);\n");
   fprintf(write,"  echo(//shift 2 d);\n");
   fprintf(write,"  echo(//replace wool:7 wool:%%&value%%);\n");
-  fprintf(write,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(write,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
   fprintf(write,"  echo(//shift 2 u);\n");
   fprintf(write,"  echo(//shift 1 %%&oppin_side%%);\n");
 
@@ -2318,7 +2290,7 @@ void script_lvlDown(){
 
   fprintf(lvlDown,"  SET(@#lvldown_complete,0);\n");
 
-  fprintf(lvlDown,"  log(EXEC LWire($$[1])...);\n");
+  fprintf(lvlDown,"  log(EXEC lvlDown($$[1])...);\n");
 
   fprintf(lvlDown,"  &st_side = $$[1]\n");
 
@@ -2337,7 +2309,7 @@ void script_lvlDown(){
   fprintf(lvlDown,"  echo(//shift 2 d);\n");
 
   fprintf(lvlDown,"  echo(//set wool:4);\n");
-  fprintf(lvlDown,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(lvlDown,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
   fprintf(lvlDown,"  echo(//overlay redstone);\n");
 
   fprintf(lvlDown,"  echo(//shift 1 %%&oppst_side%%);\n");
@@ -2456,7 +2428,7 @@ void script_lseg(){
 
   fprintf(lseg,"  SET(@#lseg_complete,0);\n");
 
-  fprintf(lseg,"  log(EXEC LWire($$[1])...);\n");
+  fprintf(lseg,"  log(EXEC lseg($$[1])...);\n");
 
   fprintf(lseg,"  &dir = $$[1]\n");
 
@@ -2470,9 +2442,9 @@ void script_lseg(){
 
   fprintf(lseg,"  echo(//shift 1 %%&dir%%)\n");
   fprintf(lseg,"  echo(//set redstone_Lamp);\n");
-  fprintf(lseg,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(lseg,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
   fprintf(lseg,"  echo(//stack 2 %%&dir%%)\n");
-  fprintf(lseg,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!); \n");
+  fprintf(lseg,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!); \n");
   fprintf(lseg,"  echo(//shift 1 %%&opp_dir%%)\n");
 
   fprintf(lseg,"  SET(@#lseg_complete,1);\n");
@@ -2643,55 +2615,55 @@ void LWire(char dir, char in_side, _Bool move){
   memory_LWire(dir,in_side,move);
 }
 
-void script_stairWire(){
+void script_swire(){
 
-  FILE* stairWire = fopen("lib/stairWire.txt","w");
+  FILE* swire = fopen("lib/swire.txt","w");
 
-  fprintf(stairWire,"$${\n");
+  fprintf(swire,"$${\n");
 
-  fprintf(stairWire,"SET(@#swire_complete,0);\n");
+  fprintf(swire,"SET(@#swire_complete,0);\n");
 
-  fprintf(stairWire,"log(EXEC stairWire($$[1],$$[2],$$[3],$$[4])...);\n");
+  fprintf(swire,"log(EXEC swire($$[1],$$[2],$$[3],$$[4])...);\n");
 
-  fprintf(stairWire,"&dir     = $$[1];\n");
-  fprintf(stairWire,"&up      = $$[2];\n");
-  fprintf(stairWire,"&in_side = $$[3];\n");
-  fprintf(stairWire,"SET(move,  $$[4]);\n");
+  fprintf(swire,"&dir     = $$[1];\n");
+  fprintf(swire,"&up      = $$[2];\n");
+  fprintf(swire,"&in_side = $$[3];\n");
+  fprintf(swire,"SET(move,  $$[4]);\n");
 
-  fprintf(stairWire,"//calculate the opposite direction from in_side\n");
-  fprintf(stairWire,"if(&in_side == \"f\");\n  log(oppin_side = b);\n  &oppin_side = \"b\";\n");
-  fprintf(stairWire,"  elseif(&in_side == \"b\");\n  log(oppin_side = f);\n  &oppin_side = \"f\";\n");
-  fprintf(stairWire,"  elseif(&in_side == \"l\");\n  log(oppin_side = r);\n  &oppin_side = \"r\";\n");
-  fprintf(stairWire,"  elseif(&in_side == \"r\");\n  log(oppin_side = l);\n  &oppin_side = \"l\";\n");
-  fprintf(stairWire,"  else; log(Invalid direction received :%%&in_side%%);\n");
-  fprintf(stairWire,"endif;\n");
+  fprintf(swire,"//calculate the opposite direction from in_side\n");
+  fprintf(swire,"if(&in_side == \"f\");\n  &oppin_side = \"b\";\n");
+  fprintf(swire,"  elseif(&in_side == \"b\");\n  &oppin_side = \"f\";\n");
+  fprintf(swire,"  elseif(&in_side == \"l\");\n  &oppin_side = \"r\";\n");
+  fprintf(swire,"  elseif(&in_side == \"r\");\n  &oppin_side = \"l\";\n");
+  fprintf(swire,"  else; log(Invalid direction received :%%&in_side%%);\n");
+  fprintf(swire,"endif;\n");
 
-  fprintf(stairWire,"//calculate the opposite direction from in_side\n");
-  fprintf(stairWire,"if(&up == \"u\");\n  log(oppup = d);\n  &oppup = \"d\";\n");
-  fprintf(stairWire,"  elseif(&up == \"d\");\n  log(oppup = u);\n  &oppup = \"u\";\n");
-  fprintf(stairWire,"  else; log(Invalid direction received :%%&up%%);\n");
-  fprintf(stairWire,"endif;\n");
+  fprintf(swire,"//calculate the opposite direction from in_side\n");
+  fprintf(swire,"if(&up == \"u\");\n  log(oppup = d);\n  &oppup = \"d\";\n");
+  fprintf(swire,"  elseif(&up == \"d\");\n  log(oppup = u);\n  &oppup = \"u\";\n");
+  fprintf(swire,"  else; log(Invalid direction received :%%&up%%);\n");
+  fprintf(swire,"endif;\n");
 
-  fprintf(stairWire,"#value = 7;\n");
+  fprintf(swire,"#value = 7;\n");
 
-  fprintf(stairWire,"EXEC(stairs.txt,\"stairs\",\"wool\",%%#value%%,\"%%&oppin_side%%\",\"%%&up%%\",2); DO; UNTIL(@#stairs_complete == 1); log(complete);\n");
+  fprintf(swire,"EXEC(stairs.txt,\"stairs\",\"wool\",%%#value%%,\"%%&oppin_side%%\",\"%%&up%%\",2); DO; UNTIL(@#stairs_complete == 1); log(complete);\n");
 
-  fprintf(stairWire,"if(move);\n");
-  fprintf(stairWire,"  log(move);\n");
-  fprintf(stairWire,"  echo(//shift 1 %%&dir%%);\n");
-  fprintf(stairWire,"endif;\n");
+  fprintf(swire,"if(move);\n");
+  fprintf(swire,"  log(move);\n");
+  fprintf(swire,"  echo(//shift 1 %%&dir%%);\n");
+  fprintf(swire,"endif;\n");
 
-  fprintf(stairWire,"EXEC(wire.txt,\"wire\",10,4,%%#value%%,2,\"%%&oppin_side%%\"); DO; UNTIL(@#wire_complete == 1); log(complete);\n");
-  fprintf(stairWire,"echo(//shift 4 %%&in_side%%);\n");
-  fprintf(stairWire,"echo(//shift 2 %%&oppup%%);\n");
+  fprintf(swire,"EXEC(wire.txt,\"wire\",10,4,%%#value%%,2,\"%%&oppin_side%%\"); DO; UNTIL(@#wire_complete == 1); log(complete);\n");
+  fprintf(swire,"echo(//shift 4 %%&in_side%%);\n");
+  fprintf(swire,"echo(//shift 2 %%&oppup%%);\n");
 
-  fprintf(stairWire,"SET(@#swire_complete,1);\n");
+  fprintf(swire,"SET(@#swire_complete,1);\n");
 
-  fprintf(stairWire,"}$$\n");
-  fclose(stairWire);
+  fprintf(swire,"}$$\n");
+  fclose(swire);
 }
 
-void memory_stairWire(char Dir, char up, char inSide, _Bool move){
+void memory_swire(char Dir, char up, char inSide, _Bool move){
   char* type = "wool";
   unsigned char value = 7;
   memory_Stairs(type,value,opp_dir(inSide),up,2);
@@ -2702,71 +2674,71 @@ void memory_stairWire(char Dir, char up, char inSide, _Bool move){
   memory_shift(2,opp_dir(up));
 }
 
-void stairWire(char Dir, char up, char inSide, _Bool move){
+void swire(char Dir, char up, char inSide, _Bool move){
   char command[commandBuffer];
-  snprintf(command,commandBuffer,"EXEC(stairWire.txt,\"stairWire\",\"%c\",\"%c\",\"%c\",%i); DO; UNTIL(@#swire_complete == 1); log(complete);\n",Dir,up,inSide,move);
+  snprintf(command,commandBuffer,"EXEC(swire.txt,\"swire\",\"%c\",\"%c\",\"%c\",%i); DO; UNTIL(@#swire_complete == 1); log(complete);\n",Dir,up,inSide,move);
   toScript(command);
-  memory_stairWire(Dir,up,inSide,move);
+  memory_swire(Dir,up,inSide,move);
 }
 
 void script_dwires(){
 
-  FILE* dispwires = fopen("lib/dwires.txt","w");
+  FILE* dwires = fopen("lib/dwires.txt","w");
 
-  fprintf(dispwires,"$${\n");
+  fprintf(dwires,"$${\n");
 
-  fprintf(dispwires,"SET(@#dispwires_complete,0);\n");
+  fprintf(dwires,"SET(@#dwires_complete,0);\n");
 
   //print function call
-  fprintf(dispwires,"log(EXEC dispwires($$[1],$$[2])...);\n");
+  fprintf(dwires,"log(EXEC dwires($$[1],$$[2])...);\n");
 
   //unpack parameters
-  fprintf(dispwires,"&in_side = $$[1];\n");
-  fprintf(dispwires,"&st_side = $$[2];\n");
+  fprintf(dwires,"&in_side = $$[1];\n");
+  fprintf(dwires,"&st_side = $$[2];\n");
 
-  fprintf(dispwires,"//calculate the opposite direction from in_side\n");
-  fprintf(dispwires,"if(&st_side == \"f\"); &oppst_side = \"b\";\n");
-  fprintf(dispwires,"  elseif(&st_side == \"b\"); &oppst_side = \"f\";\n");
-  fprintf(dispwires,"  elseif(&st_side == \"l\"); &oppst_side = \"r\";\n");
-  fprintf(dispwires,"  elseif(&st_side == \"r\"); &oppst_side = \"l\";\n");
-  fprintf(dispwires,"  else; log(Invalid direction received :%%&dir%%);\n");
-  fprintf(dispwires,"endif;\n");
+  fprintf(dwires,"//calculate the opposite direction from in_side\n");
+  fprintf(dwires,"if(&st_side == \"f\"); &oppst_side = \"b\";\n");
+  fprintf(dwires,"  elseif(&st_side == \"b\"); &oppst_side = \"f\";\n");
+  fprintf(dwires,"  elseif(&st_side == \"l\"); &oppst_side = \"r\";\n");
+  fprintf(dwires,"  elseif(&st_side == \"r\"); &oppst_side = \"l\";\n");
+  fprintf(dwires,"  else; log(Invalid direction received :%%&dir%%);\n");
+  fprintf(dwires,"endif;\n");
 
   //1
-  fprintf(dispwires,"log(1);\n");
-  fprintf(dispwires,"EXEC(LWire.txt,\"LWire\",%%&oppst_side%%,%%&in_side%%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 1 %%&oppst_side%%);\n");
+  fprintf(dwires,"log(1);\n");
+  fprintf(dwires,"EXEC(LWire.txt,\"LWire\",%%&oppst_side%%,%%&in_side%%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 1 %%&oppst_side%%);\n");
   //2
-  fprintf(dispwires,"log(2);\n");
-  fprintf(dispwires,"EXEC(stairWire.txt,\"stairWire\",%%&oppst_side%%,\"u\",%%&in_side%%,1); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 1 %%&oppst_side%%);\n");
+  fprintf(dwires,"log(2);\n");
+  fprintf(dwires,"EXEC(swire.txt,\"swire\",%%&oppst_side%%,\"u\",%%&in_side%%,1); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 1 %%&oppst_side%%);\n");
   //3
-  fprintf(dispwires,"log(3);\n");
-  fprintf(dispwires,"EXEC(stairWire.txt,\"stairWire\",%%&st_side%%,\"d\",%%&in_side%%,1); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 3 %%&oppst_side%%);\n");
+  fprintf(dwires,"log(3);\n");
+  fprintf(dwires,"EXEC(swire.txt,\"swire\",%%&st_side%%,\"d\",%%&in_side%%,1); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 3 %%&oppst_side%%);\n");
   //4
-  fprintf(dispwires,"log(4);\n");
-  fprintf(dispwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 4 u);\n");
+  fprintf(dwires,"log(4);\n");
+  fprintf(dwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,1); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 4 u);\n");
   //5
-  fprintf(dispwires,"log(5);\n");
-  fprintf(dispwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 2 %%&st_side%%);\n");
+  fprintf(dwires,"log(5);\n");
+  fprintf(dwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 2 %%&st_side%%);\n");
   //6
-  fprintf(dispwires,"log(6);\n");
-  fprintf(dispwires,"EXEC(stairWire.txt,\"stairWire\",%%&st_side%%,\"u\",%%&in_side%%,0); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
-  fprintf(dispwires,"echo(//shift 2 %%&st_side%%);\n");
+  fprintf(dwires,"log(6);\n");
+  fprintf(dwires,"EXEC(swire.txt,\"swire\",%%&st_side%%,\"u\",%%&in_side%%,0); DO; UNTIL(@#swire_complete == 1); log(complete);\n");
+  fprintf(dwires,"echo(//shift 2 %%&st_side%%);\n");
   //7
-  fprintf(dispwires,"log(7);\n");
-  fprintf(dispwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
+  fprintf(dwires,"log(7);\n");
+  fprintf(dwires,"EXEC(LWire.txt,\"LWire\",%%&st_side%%,%%&in_side%%,0); DO; UNTIL(@#lwire_complete == 1); log(complete);\n");
   //return to origin
-  fprintf(dispwires,"echo(//shift 1 %%&st_side%%);\n");
+  fprintf(dwires,"echo(//shift 1 %%&st_side%%);\n");
 
-  fprintf(dispwires,"SET(@#dispwires_complete,1);\n");
+  fprintf(dwires,"SET(@#dwires_complete,1);\n");
 
-  fprintf(dispwires,"}$$\n");
+  fprintf(dwires,"}$$\n");
 
-  fclose(dispwires);
+  fclose(dwires);
 }
 
 void memory_dwires(char inSide,char stSide){
@@ -2775,10 +2747,10 @@ void memory_dwires(char inSide,char stSide){
   memory_LWire(opp_dir(stSide),inSide,1);
   memory_shift(1,opp_dir(stSide));
   //2
-  memory_stairWire(opp_dir(stSide),'u',inSide,1);
+  memory_swire(opp_dir(stSide),'u',inSide,1);
   memory_shift(1,opp_dir(stSide));
   //3
-  memory_stairWire(stSide,'d',inSide,1);
+  memory_swire(stSide,'d',inSide,1);
   memory_shift(3,opp_dir(stSide));
   //4
   memory_LWire(stSide,inSide,1);
@@ -2787,7 +2759,7 @@ void memory_dwires(char inSide,char stSide){
   memory_LWire(stSide,inSide,0);
   memory_shift(2,stSide);
   //6
-  memory_stairWire(stSide,'u',inSide,0);
+  memory_swire(stSide,'u',inSide,0);
   memory_shift(2,stSide);
   //7
   memory_LWire(stSide,inSide,0);
@@ -2797,7 +2769,7 @@ void memory_dwires(char inSide,char stSide){
 
 void dwires(char inSide,char stSide){
   char command[commandBuffer];
-  snprintf(command,commandBuffer,"EXEC(dwires.txt,\"dwires\",\"%c\",\"%c\"); DO; UNTIL(@#dispwires_complete == 1); log(complete);\n",inSide,stSide);
+  snprintf(command,commandBuffer,"EXEC(dwires.txt,\"dwires\",\"%c\",\"%c\"); DO; UNTIL(@#dwires_complete == 1); log(complete);\n",inSide,stSide);
   toScript(command);
   memory_dwires(inSide,stSide);
 }
@@ -3006,34 +2978,76 @@ struct buss buildPermute
     //wire to output
     inStreangth = wire(inStreangth,4,dataValueOut,outLength - 2,opp_dir(forward));
 
-    //output reached record its strength
-    outBuss.strength[index] = inStreangth;
-
     //dont shift at the end
-    if(index != tableLength -1){
+    if(index != tableLength - 1){
       shift(2,opp_dir(st_side));
     }
+
+    //output reached record its strength
+    outBuss.strength[index] = inStreangth;
   }
   shift((tableLength -1) * 2,st_side);
 
   if(!stayAtOut){
-    if(st_side == in_side){
-      shift(2,'d');
-      shift(2,in_side);
-      shift(2,forward);
-    }
-    else{
-      shift(2,'d');
-      shift(tableLength * 2,in_side);
-      shift(2,forward);
-    }
+    shift(2,'d');
+    if(st_side == in_side) shift(2,in_side);
+    else                   shift(tableLength * 2,in_side);
+    shift(2,forward);
   }
 
   comment("endbuildPermute");
   return outBuss;
 }
 
-void tower2(unsigned char value,unsigned char levels){
+void script_tower(){
+
+  FILE* tower = fopen("lib/tower.txt","w");
+
+  fprintf(tower,"$${\n");
+
+  fprintf(tower,"  SET(@#tower_complete,0);\n");
+
+  fprintf(tower,"  log(EXEC tower($$[1],$$[2],$$[3])...);\n");
+
+  fprintf(tower,"  #distance = $$[1]\n");
+  fprintf(tower,"  &up       = $$[2]\n");
+  fprintf(tower,"  #value    = $$[3]\n");
+
+  fprintf(tower,"  #distance = #distance - 1;\n");
+  fprintf(tower,"  if(#distance > 0);\n");
+  fprintf(tower,"    if(&up == \"u\");\n");
+  fprintf(tower,"      echo(//shift 2 u);\n");
+  fprintf(tower,"      EXEC(seto.txt,\"seto\",\"u\"); DO; UNTIL(@#seto_complete == 1); log(complete);\n");
+  fprintf(tower,"      if(#distance > 1);\n");
+  fprintf(tower,"        #stack_amt = #distance - 1;\n");
+  fprintf(tower,"        echo(//stack %%#stack_amt%% u -s);\n");
+  fprintf(tower,"        UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower,"      endif;\n");
+  fprintf(tower,"      echo(//overlay wool:%%#value%%);\n");
+  fprintf(tower,"      UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower,"    else;\n");
+  fprintf(tower,"      EXEC(seto.txt,\"seto\",\"d\"); DO; UNTIL(@#seto_complete == 1); log(complete);\n");
+  fprintf(tower,"      if(#distance > 1);\n");
+  fprintf(tower,"        #stack_amt = #distance - 1;\n");
+  fprintf(tower,"        echo(//stack %%#stack_amt%% d -s);\n");
+  fprintf(tower,"        UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower,"      endif;\n");
+  fprintf(tower,"      echo(//shift 1 d);\n");
+  fprintf(tower,"      echo(//set wool:%%#value%%);\n");
+  fprintf(tower,"      UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower,"      echo(//shift 1 d);\n");
+  fprintf(tower,"    endif;\n");
+  fprintf(tower,"  endif;\n");
+
+  fprintf(tower,"  SET(@#tower_complete,1);\n");
+
+  fprintf(tower,"}$$\n");
+
+  fclose(tower);
+
+}
+
+void memory_tower(unsigned short distance,char up, unsigned char value){
 
   //pack B
   struct block B;
@@ -3041,18 +3055,88 @@ void tower2(unsigned char value,unsigned char levels){
   B.value = value;
   B.reldir = '\0';
 
-  comment("tower2");
-  set_block(B,1);
-  shift(1,'u');
-  sett('u');
-  expand(1,'d');
-  stack(levels,'u',"s");
-  replace("redstone_torch",0,0,"redstone",1,0);
-  contract(1,'d');
-  comment("endtower2");
+  distance--;
+  if(distance > 0){
+    if(up == 'u'){
+      memory_shift(2,'u');
+      memory_seto(up);
+      if(distance > 1){
+        memory_stack(distance - 1,'u',"s");
+      }
+      memory_overlay("wool",value);
+    }
+    else{
+      memory_seto('d');
+      if(distance > 1){
+        memory_stack(distance - 1,'d',"s");
+      }
+      memory_shift(1,'d');
+      memory_set_block(B);
+      memory_shift(1,'d');
+    }
+  }
 }
 
+void tower(unsigned short distance,char up, unsigned char value){
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"EXEC(tower.txt,\"tower\",%i,\"%c\",%i); DO; UNTIL(@#tower_complete == 1); log(complete);\n",distance,up,value);
+  toScript(command);
+  memory_tower(distance,up,value);
+}
 
+void script_tower2(){
+
+  FILE* tower2 = fopen("lib/tower2.txt","w");
+
+  fprintf(tower2,"$${\n");
+
+  fprintf(tower2,"  SET(@#tower2_complete,0);\n");
+
+  fprintf(tower2,"  log(EXEC tower2($$[1],$$[2])...);\n");
+
+  fprintf(tower2,"  #value  = $$[1]\n");
+  fprintf(tower2,"  #levels = $$[2]\n");
+
+  fprintf(tower2,"  echo(//set wool:%%#value%%);\n");
+  fprintf(tower2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower2,"  echo(//shift 1 u);\n");
+  fprintf(tower2,"  EXEC(sett.txt,\"sett\",\"u\"); DO; UNTIL(@#sett_complete == 1); log(complete);\n");
+  fprintf(tower2,"  echo(//expand 1 u);\n");
+  fprintf(tower2,"  echo(//stack %%#levels%% u -s);\n");
+  fprintf(tower2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+  fprintf(tower2,"  echo(//replace redstone_torch redstone);\n");
+  fprintf(tower2,"  echo(//contract 1 d);\n");
+
+  fprintf(tower2,"  SET(@#tower2_complete,1);\n");
+
+  fprintf(tower2,"}$$\n");
+
+  fclose(tower2);
+}
+
+void memory_tower2(unsigned char value,unsigned char levels){
+
+  //pack B
+  struct block B;
+  B.type = blockLookup("wool");
+  B.value = value;
+  B.reldir = '\0';
+
+  memory_set_block(B);
+  memory_shift(1,'u');
+  memory_sett('u');
+  memory_expand(1,'d');
+  memory_stack(levels,'u',"s");
+  memory_replace("redstone_torch",0,0,"redstone",1,0);
+  memory_contract(1,'d');
+}
+
+void tower2(unsigned char value,unsigned char levels){
+  char command[commandBuffer];
+  snprintf(command,commandBuffer,"EXEC(tower2.txt,\"tower2\",%i,%i); DO; UNTIL(@#tower2_complete == 1); log(complete);\n",value,levels);
+  toScript(command);
+  memory_tower2(value,levels);
+}
 
 struct buss bussUp(_Bool type, struct buss arg, unsigned short distance, char up, _Bool flip){
   comment("bussUp");
@@ -3143,7 +3227,7 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
         tower(depth,'d',collor);
         distance = i * 2;
-        if(distance > 0) arg.strength[i] = wire(16,1,collor,distance,newdir);
+        if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,newdir);
         if(i != width -1){
           shift(((width - 1) - i) * 2,opp_olddir);
           shift(i * 2,opp_newdir);
@@ -3156,7 +3240,7 @@ struct buss turnBuss(struct buss arg, char direction,_Bool flip, unsigned char d
         if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,olddir);
         tower(depth,'d',collor);
         distance = ((width - 1) - i) * 2;
-        if(distance > 0) arg.strength[i] = wire(16,1,collor,distance,newdir);
+        if(distance > 0) arg.strength[i] = wire(arg.strength[i],1,collor,distance,newdir);
         if(i != width -1){
           shift(i * 2,opp_olddir);
           shift(((width - 1) - i) * 2,opp_newdir);
@@ -3231,7 +3315,6 @@ struct buss bussStraight(struct buss arg, short distance){
   comment("endbussStraight");
   return arg;
 }
-
 
 //i have no idea what this value does all i know it is in RGB format
 unsigned int KaLookup(unsigned char part){
@@ -3860,7 +3943,7 @@ void script_bxor1(){
 
   fprintf(bxor1,"  SET(@#bxor1_complete,0);\n");
 
-  fprintf(bxor1,"  log(EXEC seto($$[1])...);\n");
+  fprintf(bxor1,"  log(EXEC bxor1($$[1])...);\n");
 
   fprintf(bxor1,"    &dir = $$[1]\n");
 
@@ -3873,30 +3956,30 @@ void script_bxor1(){
   fprintf(bxor1,"    endif\n");
 
   fprintf(bxor1,"  echo(//set wool 5);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
   fprintf(bxor1,"  EXEC(setr.txt,\"setr\",\"%%&dir%%\",0); DO; UNTIL(@#setr_complete == 1); log(complete);\n");
   fprintf(bxor1,"  echo(//shift 2 d);\n");
   fprintf(bxor1,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor1,"  echo(//set wool 4);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//overlay redstone);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//shift 2 u);\n");
   fprintf(bxor1,"  echo(//set wool 5);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//overlay redstone);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
   fprintf(bxor1,"  echo(//set wool 5);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor1,"  EXEC(sett.txt,\"sett\",\"%%&dir%%\"); DO; UNTIL(@#sett_complete == 1); log(complete);\n");
   fprintf(bxor1,"  echo(//expand 1 %%&opp_dir%%);\n");
   fprintf(bxor1,"  echo(//expand 1 d);\n");
   fprintf(bxor1,"  echo(//stack 1 d -s);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//contract 1 %%&opp_dir%%);\n");
   fprintf(bxor1,"  echo(//contract 1 u);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
@@ -3906,14 +3989,16 @@ void script_bxor1(){
   fprintf(bxor1,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
   fprintf(bxor1,"  echo(//set wool 4);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
   fprintf(bxor1,"  EXEC(sett.txt,\"sett\",\"u\"); DO; UNTIL(@#sett_complete == 1); log(complete);\n");
   fprintf(bxor1,"  echo(//shift 1 u);\n");
   fprintf(bxor1,"  echo(//set wool 5);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor1,"  echo(//overlay redstone);\n");
-  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor1,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
+
+  fprintf(bxor1,"  SET(@#bxor1_complete,1);\n");
 
   fprintf(bxor1,"}$$\n");
 
@@ -3983,7 +4068,7 @@ void script_bxor2(){
 
   fprintf(bxor2,"  SET(@#bxor2_complete,0);\n");
 
-  fprintf(bxor2,"  log(EXEC seto($$[1])...);\n");
+  fprintf(bxor2,"  log(EXEC bxor2($$[1])...);\n");
 
   fprintf(bxor2,"    &dir = $$[1]\n");
 
@@ -3998,28 +4083,28 @@ void script_bxor2(){
   fprintf(bxor2,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor2,"  echo(//shift 1 u);\n");
   fprintf(bxor2,"  echo(//set wool 4);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//expand 1 u);\n");
   fprintf(bxor2,"  echo(//stack 1 u);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//shift 1 u);\n");
   fprintf(bxor2,"  echo(//stack 1 u);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//shift 1 d);\n");
   fprintf(bxor2,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor2,"  echo(//contract 1 u);\n");
   fprintf(bxor2,"  echo(//set wool 5);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//expand 1 d);\n");
   fprintf(bxor2,"  echo(//stack 1 u);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//expand 1 %%&opp_dir%%);\n");
   fprintf(bxor2,"  echo(//expand 3 u);\n");
   fprintf(bxor2,"  echo(//stack 1 %%&dir%%);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//shift 1 %%&dir%%);\n");
   fprintf(bxor2,"  echo(//stack 2 %%&dir%%);\n");
-  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; WAIT(20ms); UNTIL(@done); log(Done!);\n");
+  fprintf(bxor2,"  UNSET(@done); log(waiting for done); DO; UNTIL(@done); log(Done!);\n");
   fprintf(bxor2,"  echo(//stack 1 %%&opp_dir%%);\n");
   fprintf(bxor2,"  echo(//contract 3 d);\n");
   fprintf(bxor2,"  echo(//contract 1 u);\n");
@@ -4057,6 +4142,8 @@ void script_bxor2(){
   fprintf(bxor2,"  echo(//shift 4 u);\n");
   fprintf(bxor2,"  EXEC(setr.txt,\"setr\",\"%%&dir%%\",0); DO; UNTIL(@#setr_complete == 1); log(complete);\n");
   fprintf(bxor2,"  echo(//shift 1 %%&dir%%);\n");
+
+  fprintf(bxor2,"  SET(@#bxor2_complete,1);\n");
 
   fprintf(bxor2,"}$$\n");
 
@@ -4209,8 +4296,6 @@ struct buss* allocateBlock(){
   return Block;
 }
 
-
-
 struct buss busst_flip(struct buss arg){
   t_flip(arg.loc.direction);
   shift(1,'u');
@@ -4232,7 +4317,7 @@ struct buss halfSwapSides(struct buss inBuss,short amount,char turndir,char shif
   comment("halfSwapSides");
 
   short bits = inBuss.width;
-  
+
   for(short i = 0; i < 4; i++){
 
     struct buss subBuss;
@@ -4519,7 +4604,6 @@ struct DESKeys setKeySchedual(struct bussPair keyPair,unsigned char num_rounds){
 }
 
 
-
 void DES(){
   unsigned char num_rounds = 16;
   unsigned char distance = 14;
@@ -4557,7 +4641,7 @@ void DES(){
   for(unsigned char i = 0; i < width; i++){
     keyPair.Tap1.collors[i] = key.collors[i];
     keyPair.Tap2.collors[i] = key.collors[i];
-    keyPair.Tap2.strength[i] = key.strength[i];
+    keyPair.Tap1.strength[i] = key.strength[i];
     keyPair.Tap2.strength[i] = key.strength[i];
   }
 
@@ -4577,12 +4661,12 @@ void DES(){
   shift(1,keyPair.Tap2.loc.direction);
   freeBuss(key);
 
-  printFileBuffer("copyKeys",1);
+  printSubScript("copyKeys",1);
 
   //build keyscheduals
   struct DESKeys keyschedual = setKeySchedual(keyPair,num_rounds);
 
-  printFileBuffer("keyschedual",1);
+  printSubScript("keyschedual",1);
 
   //decrypt
   for(int i = 0; i < num_rounds; i++){
@@ -4594,7 +4678,7 @@ void DES(){
     freeBuss(block[0]);
     freeBuss(block[1]);
     free(block);
-    printFileBuffer("decrypt",i + 1);
+    printSubScript("decrypt",i + 1);
   }
 
   comment("shiftGroup2");
@@ -4612,7 +4696,7 @@ void DES(){
     freeBuss(block[0]);
     freeBuss(block[1]);
     free(block);
-    printFileBuffer("encrypt",i + 1);
+    printSubScript("encrypt",i + 1);
   }
 }
 
@@ -4625,13 +4709,16 @@ void printScripts(){
   script_wire();
   script_LWire();
   script_stairs();
-  script_stairWire();
+  script_swire();
   script_dwires();
   script_lseg();
   script_lvlDown();
   script_bxor1();
   script_bxor2();
   script_write();
+  script_tower();
+  script_tower2();
+  script_t_flip();
 }
 
 void clearFirstBlock(){
@@ -4642,7 +4729,64 @@ void clearFirstBlock(){
   map[0] = B;
 }
 
+struct dimentions{
+  short width;
+  short height;
+  short depth;
+};
+
+void mapExport(){
+  //storage for export dimentions
+  struct dimentions dimentions[1];
+
+  //pack dimentions
+  dimentions[0].width = mapW;
+  dimentions[0].height = mapH;
+  dimentions[0].depth = mapD;
+
+  FILE * export = fopen("mapExport/map.bin","wb");
+
+  //save dimentions
+  fwrite(dimentions,1,sizeof(struct dimentions),export);
+
+  //save data
+  fwrite(map,mapW * mapH * mapD,sizeof(struct block),export);
+  fclose(export);
+}
+
+void mapImport(){
+
+  FILE * export = fopen("mapExport/map.bin","rb");
+
+  //storage for import dimentions
+  struct dimentions dimentions[1];
+
+  //get dimentions
+  if(!fread(dimentions,1,sizeof(struct dimentions),export)){
+    printf("read fail");
+    exit(1);
+  }
+
+  //unpack and update dimentions
+  mapW = dimentions[0].width;
+  mapH = dimentions[0].height;
+  mapD = dimentions[0].depth;
+
+  //make room
+  map = malloc(mapW * mapH * mapD * sizeof(struct block));
+
+  //get data
+  if(!fread(map,mapW * mapH * mapD,sizeof(struct block),export)){
+    printf("read fail");
+    exit(1);
+  }
+  fclose(export);
+}
+
+
 int main(){
+
+  getchar();
 
   printScripts();
 
@@ -4651,12 +4795,21 @@ int main(){
   mainScript = malloc(1);
   subScript = malloc(1);
   clearFirstBlock();
+  toScript("");
 
-  DES();
+  // DES();
+
+  // runTest();
+
+  printSubScript("main_body",1);
+
+  // mapExport();
+
+  mapImport();
 
   printMain();
-  buildMaterialLibrary();
-  buildWaveFront();
+  // buildMaterialLibrary();
+  // buildWaveFront();
   buildImmages();
 
   free(subScript);
